@@ -692,18 +692,6 @@ export default function JASEventManager() {
                 <Package className="w-5 h-5" />
                 <span className="font-medium">抽選・景品・配送</span>
               </button>
-
-              <button
-                onClick={() => setCurrentScreen("accounting")}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                  currentScreen === "accounting"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                }`}
-              >
-                <DollarSign className="w-5 h-5" />
-                <span className="font-medium">経理・計上センター</span>
-              </button>
             </>
           )}
         </nav>
@@ -1563,13 +1551,6 @@ export default function JASEventManager() {
                   </p>
                 </CardContent>
               </Card>
-
-              <div className="flex justify-end">
-                <Button onClick={() => setCurrentScreen("accounting")} size="lg">
-                  経理・計上フェーズへ
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
             </div>
           )}
 
