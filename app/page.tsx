@@ -47,14 +47,31 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Textarea } from "@/components/ui/textarea"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command"
+import { Check, ChevronsUpDown } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 type Screen = "list" | "proposal" | "production" | "lottery" | "accounting"
 type Role = "sales" | "admin"
 
+type Company = {
+  id: string
+  name: string
+}
+
+type Hall = {
+  id: string
+  name: string
+  companyId: string
+}
+
 type Project = {
   id: string
+  companyName: string
   hallName: string
-  eventDate: string
+  eventStartDate: string
+  eventEndDate: string
   area: string
   status: "draft" | "quote-created" | "confirmed" | "in-progress" | "completed"
   budget: string
@@ -78,13 +95,37 @@ export default function JASEventManager() {
   const [showNotifications, setShowNotifications] = useState(false)
   const { toast } = useToast()
 
+  // 擬似DB: 法人とホールのデータ
+  const companies: Company[] = [
+    { id: "C001", name: "株式会社オメガ" },
+    { id: "C002", name: "株式会社メガ" },
+    { id: "C003", name: "株式会社サンライズ" },
+    { id: "C004", name: "株式会社スカイ" },
+    { id: "C005", name: "株式会社デルタ" },
+  ]
+
+  const halls: Hall[] = [
+    { id: "H001", name: "オメガホール東京", companyId: "C001" },
+    { id: "H002", name: "オメガホール大阪", companyId: "C001" },
+    { id: "H003", name: "オメガホール名古屋", companyId: "C001" },
+    { id: "H004", name: "メガホール大阪", companyId: "C002" },
+    { id: "H005", name: "メガホール東京", companyId: "C002" },
+    { id: "H006", name: "サンライズホール名古屋", companyId: "C003" },
+    { id: "H007", name: "サンライズホール福岡", companyId: "C003" },
+    { id: "H008", name: "スカイホール福岡", companyId: "C004" },
+    { id: "H009", name: "スカイホール広島", companyId: "C004" },
+    { id: "H010", name: "デルタ店舗", companyId: "C005" },
+  ]
+
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
 
   const [projects, setProjects] = useState<Project[]>([
     {
       id: "P001",
+      companyName: "株式会社メガ",
       hallName: "メガホール大阪",
-      eventDate: "2024-11-15",
+      eventStartDate: "2024-11-15",
+      eventEndDate: "2024-11-15",
       area: "大阪府大阪市",
       status: "confirmed",
       budget: "450,000",
@@ -100,8 +141,10 @@ export default function JASEventManager() {
     },
     {
       id: "P002",
+      companyName: "株式会社サンライズ",
       hallName: "サンライズホール名古屋",
-      eventDate: "2024-12-10",
+      eventStartDate: "2024-12-10",
+      eventEndDate: "2024-12-10",
       area: "愛知県名古屋市",
       status: "in-progress",
       budget: "280,000",
@@ -117,8 +160,10 @@ export default function JASEventManager() {
     },
     {
       id: "P003",
+      companyName: "株式会社スカイ",
       hallName: "スカイホール福岡",
-      eventDate: "2025-01-20",
+      eventStartDate: "2025-01-20",
+      eventEndDate: "2025-01-20",
       area: "福岡県福岡市",
       status: "quote-created",
       budget: "350,000",
@@ -135,8 +180,13 @@ export default function JASEventManager() {
   ])
 
   // Screen 1: Proposal State
+  const [companyName, setCompanyName] = useState("")
   const [hallName, setHallName] = useState("")
-  const [eventDate, setEventDate] = useState("")
+  const [companyOpen, setCompanyOpen] = useState(false)
+  const [hallOpen, setHallOpen] = useState(false)
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("")
+  const [eventStartDate, setEventStartDate] = useState("")
+  const [eventEndDate, setEventEndDate] = useState("")
   const [area, setArea] = useState("")
   const [posterCount, setPosterCount] = useState("")
   const [budget, setBudget] = useState("")
@@ -258,8 +308,13 @@ export default function JASEventManager() {
 
   const handleSelectProject = (project: Project) => {
     setSelectedProject(project)
+    setCompanyName(project.companyName)
     setHallName(project.hallName)
-    setEventDate(project.eventDate)
+    // 法人IDを設定
+    const company = companies.find((c) => c.name === project.companyName)
+    setSelectedCompanyId(company?.id || "")
+    setEventStartDate(project.eventStartDate)
+    setEventEndDate(project.eventEndDate)
     setArea(project.area)
     setBudget(project.budget)
     setPosterCount(project.posterCount || "")
@@ -282,8 +337,11 @@ export default function JASEventManager() {
 
   const handleNewProject = () => {
     setSelectedProject(null)
+    setCompanyName("")
     setHallName("")
-    setEventDate("")
+    setSelectedCompanyId("")
+    setEventStartDate("")
+    setEventEndDate("")
     setArea("")
     setPosterCount("")
     setBudget("")
@@ -300,8 +358,11 @@ export default function JASEventManager() {
   }
 
   const handleAIAutoPropose = () => {
+    setCompanyName("株式会社オメガ")
+    setSelectedCompanyId("C001")
     setHallName("オメガホール東京")
-    setEventDate("2024-12-25")
+    setEventStartDate("2024-12-25")
+    setEventEndDate("2024-12-25")
     setArea("東京都渋谷区")
     setPosterCount("50")
     setBudget("300,000")
@@ -313,7 +374,7 @@ export default function JASEventManager() {
   }
 
   const handleGenerateQuote = () => {
-    if (!hallName || !eventDate || !area) {
+    if (!hallName || !eventStartDate || !eventEndDate || !area) {
       toast({
         title: "⚠️ 入力エラー",
         description: "基本情報を入力してください",
@@ -326,8 +387,10 @@ export default function JASEventManager() {
     if (!selectedProject) {
       const newProject: Project = {
         id: `P${String(projects.length + 1).padStart(3, "0")}`,
+        companyName,
         hallName,
-        eventDate,
+        eventStartDate,
+        eventEndDate,
         area,
         status: "quote-created",
         budget,
@@ -342,14 +405,16 @@ export default function JASEventManager() {
       // Update existing selected project with new quote data
       const updatedProjects = projects.map((p) =>
         p.id === selectedProject.id
-          ? { ...p, hallName, eventDate, area, budget, posterCount, target, quoteItems: [...quoteItems] }
+          ? { ...p, companyName, hallName, eventStartDate, eventEndDate, area, budget, posterCount, target, quoteItems: [...quoteItems] }
           : p,
       )
       setProjects(updatedProjects)
       setSelectedProject({
         ...selectedProject,
+        companyName,
         hallName,
-        eventDate,
+        eventStartDate,
+        eventEndDate,
         area,
         budget,
         posterCount,
@@ -771,7 +836,9 @@ export default function JASEventManager() {
                             <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                               <div className="flex items-center gap-1">
                                 <Calendar className="w-4 h-4" />
-                                {project.eventDate}
+                                {project.eventStartDate === project.eventEndDate
+                                  ? project.eventStartDate
+                                  : `${project.eventStartDate} ～ ${project.eventEndDate}`}
                               </div>
                               <div className="flex items-center gap-1">
                                 <MapPin className="w-4 h-4" />
@@ -830,24 +897,135 @@ export default function JASEventManager() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="company-name">法人名</Label>
+                    <Popover open={companyOpen} onOpenChange={setCompanyOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={companyOpen}
+                          className="w-full justify-between"
+                        >
+                          {companyName || "法人名を検索..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="法人名を検索..." />
+                          <CommandList>
+                            <CommandEmpty>法人が見つかりませんでした。</CommandEmpty>
+                            <CommandGroup>
+                              {companies.map((company) => (
+                                <CommandItem
+                                  key={company.id}
+                                  value={company.name}
+                                  onSelect={() => {
+                                    setCompanyName(company.name)
+                                    setSelectedCompanyId(company.id)
+                                    setCompanyOpen(false)
+                                    // ホールをリセット（法人が変わった場合）
+                                    if (hallName) {
+                                      const selectedHall = halls.find(h => h.name === hallName)
+                                      if (!selectedHall || selectedHall.companyId !== company.id) {
+                                        setHallName("")
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      companyName === company.name ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {company.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="hall-name">ホール名</Label>
-                      <Input
-                        id="hall-name"
-                        placeholder="例: オメガホール東京"
-                        value={hallName}
-                        onChange={(e) => setHallName(e.target.value)}
-                      />
+                      <Popover open={hallOpen} onOpenChange={setHallOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={hallOpen}
+                            className="w-full justify-between"
+                          >
+                            {hallName || "ホール名を検索..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="ホール名を検索..." />
+                            <CommandList>
+                              <CommandEmpty>ホールが見つかりませんでした。</CommandEmpty>
+                              <CommandGroup>
+                                {(selectedCompanyId
+                                  ? halls.filter((h) => h.companyId === selectedCompanyId)
+                                  : halls
+                                ).map((hall) => {
+                                  const company = companies.find((c) => c.id === hall.companyId)
+                                  return (
+                                    <CommandItem
+                                      key={hall.id}
+                                      value={hall.name}
+                                      onSelect={() => {
+                                        setHallName(hall.name)
+                                        setHallOpen(false)
+                                        // 法人を自動入力
+                                        if (company) {
+                                          setCompanyName(company.name)
+                                          setSelectedCompanyId(company.id)
+                                        }
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          hallName === hall.name ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {hall.name} {company && `(${company.name})`}
+                                    </CommandItem>
+                                  )
+                                })}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="event-date">イベント日時</Label>
+                      <Label htmlFor="event-start-date">イベント開始日</Label>
                       <Input
-                        id="event-date"
+                        id="event-start-date"
                         type="date"
-                        value={eventDate}
-                        onChange={(e) => setEventDate(e.target.value)}
+                        value={eventStartDate}
+                        onChange={(e) => setEventStartDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="event-end-date">イベント終了日</Label>
+                      <Input
+                        id="event-end-date"
+                        type="date"
+                        value={eventEndDate}
+                        onChange={(e) => setEventEndDate(e.target.value)}
                       />
                     </div>
                   </div>
