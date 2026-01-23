@@ -55,27 +55,36 @@ import { cn } from "@/lib/utils"
 type Screen = "list" | "proposal" | "production" | "lottery" | "accounting"
 type Role = "sales" | "admin"
 
+type Employee = {
+  id: string
+  name: string
+  email?: string
+}
+
 type Company = {
   id: string
   name: string
+  salesPersonId: string
 }
 
 type Hall = {
   id: string
   name: string
   companyId: string
+  salesPersonId: string
 }
 
 type Project = {
   id: string
   companyName: string
-  hallName: string
+  hallNames: string[]
   eventStartDate: string
   eventEndDate: string
   area: string
   status: "draft" | "quote-created" | "confirmed" | "in-progress" | "completed"
   budget: string
   createdAt: string
+  salesPersonId: string
   posterCount?: string
   target?: string
   quoteItems?: QuoteItem[]
@@ -95,26 +104,36 @@ export default function JASEventManager() {
   const [showNotifications, setShowNotifications] = useState(false)
   const { toast } = useToast()
 
+  // 擬似DB: 従業員データ
+  const employees: Employee[] = [
+    { id: "E001", name: "田中太郎", email: "tanaka@example.com" },
+    { id: "E002", name: "佐藤花子", email: "sato@example.com" },
+    { id: "E003", name: "鈴木一郎", email: "suzuki@example.com" },
+    { id: "E004", name: "高橋美咲", email: "takahashi@example.com" },
+    { id: "E005", name: "伊藤健太", email: "ito@example.com" },
+    { id: "E006", name: "渡辺さくら", email: "watanabe@example.com" },
+  ]
+
   // 擬似DB: 法人とホールのデータ
   const companies: Company[] = [
-    { id: "C001", name: "株式会社オメガ" },
-    { id: "C002", name: "株式会社メガ" },
-    { id: "C003", name: "株式会社サンライズ" },
-    { id: "C004", name: "株式会社スカイ" },
-    { id: "C005", name: "株式会社デルタ" },
+    { id: "C001", name: "株式会社オメガ", salesPersonId: "E001" },
+    { id: "C002", name: "株式会社メガ", salesPersonId: "E002" },
+    { id: "C003", name: "株式会社サンライズ", salesPersonId: "E003" },
+    { id: "C004", name: "株式会社スカイ", salesPersonId: "E004" },
+    { id: "C005", name: "株式会社デルタ", salesPersonId: "E005" },
   ]
 
   const halls: Hall[] = [
-    { id: "H001", name: "オメガホール東京", companyId: "C001" },
-    { id: "H002", name: "オメガホール大阪", companyId: "C001" },
-    { id: "H003", name: "オメガホール名古屋", companyId: "C001" },
-    { id: "H004", name: "メガホール大阪", companyId: "C002" },
-    { id: "H005", name: "メガホール東京", companyId: "C002" },
-    { id: "H006", name: "サンライズホール名古屋", companyId: "C003" },
-    { id: "H007", name: "サンライズホール福岡", companyId: "C003" },
-    { id: "H008", name: "スカイホール福岡", companyId: "C004" },
-    { id: "H009", name: "スカイホール広島", companyId: "C004" },
-    { id: "H010", name: "デルタ店舗", companyId: "C005" },
+    { id: "H001", name: "オメガホール東京", companyId: "C001", salesPersonId: "E001" },
+    { id: "H002", name: "オメガホール大阪", companyId: "C001", salesPersonId: "E001" },
+    { id: "H003", name: "オメガホール名古屋", companyId: "C001", salesPersonId: "E006" },
+    { id: "H004", name: "メガホール大阪", companyId: "C002", salesPersonId: "E002" },
+    { id: "H005", name: "メガホール東京", companyId: "C002", salesPersonId: "E002" },
+    { id: "H006", name: "サンライズホール名古屋", companyId: "C003", salesPersonId: "E003" },
+    { id: "H007", name: "サンライズホール福岡", companyId: "C003", salesPersonId: "E003" },
+    { id: "H008", name: "スカイホール福岡", companyId: "C004", salesPersonId: "E004" },
+    { id: "H009", name: "スカイホール広島", companyId: "C004", salesPersonId: "E004" },
+    { id: "H010", name: "デルタ店舗", companyId: "C005", salesPersonId: "E005" },
   ]
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
@@ -123,13 +142,14 @@ export default function JASEventManager() {
     {
       id: "P001",
       companyName: "株式会社メガ",
-      hallName: "メガホール大阪",
+      hallNames: ["メガホール大阪", "メガホール東京"],
       eventStartDate: "2024-11-15",
       eventEndDate: "2024-11-15",
       area: "大阪府大阪市",
       status: "confirmed",
       budget: "450,000",
       createdAt: "2024-10-01",
+      salesPersonId: "E002",
       posterCount: "100",
       target: "女性40代",
       quoteItems: [
@@ -142,13 +162,14 @@ export default function JASEventManager() {
     {
       id: "P002",
       companyName: "株式会社サンライズ",
-      hallName: "サンライズホール名古屋",
+      hallNames: ["サンライズホール名古屋", "サンライズホール福岡"],
       eventStartDate: "2024-12-10",
       eventEndDate: "2024-12-10",
       area: "愛知県名古屋市",
       status: "in-progress",
       budget: "280,000",
       createdAt: "2024-10-15",
+      salesPersonId: "E003",
       posterCount: "40",
       target: "男性20代",
       quoteItems: [
@@ -161,13 +182,14 @@ export default function JASEventManager() {
     {
       id: "P003",
       companyName: "株式会社スカイ",
-      hallName: "スカイホール福岡",
+      hallNames: ["スカイホール福岡", "スカイホール広島"],
       eventStartDate: "2025-01-20",
       eventEndDate: "2025-01-20",
       area: "福岡県福岡市",
       status: "quote-created",
       budget: "350,000",
       createdAt: "2024-11-01",
+      salesPersonId: "E004",
       posterCount: "60",
       target: "ファミリー層",
       quoteItems: [
@@ -181,10 +203,12 @@ export default function JASEventManager() {
 
   // Screen 1: Proposal State
   const [companyName, setCompanyName] = useState("")
-  const [hallName, setHallName] = useState("")
-  const [companyOpen, setCompanyOpen] = useState(false)
-  const [hallOpen, setHallOpen] = useState(false)
+  const [hallNames, setHallNames] = useState<string[]>(["", ""])
+  const [hallCompanyIds, setHallCompanyIds] = useState<string[]>(["", ""])
+  const [hallOpens, setHallOpens] = useState<boolean[]>([])
+  const [companyOpens, setCompanyOpens] = useState<boolean[]>([])
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("")
+  const [salesPersonId, setSalesPersonId] = useState("")
   const [eventStartDate, setEventStartDate] = useState("")
   const [eventEndDate, setEventEndDate] = useState("")
   const [area, setArea] = useState("")
@@ -309,10 +333,22 @@ export default function JASEventManager() {
   const handleSelectProject = (project: Project) => {
     setSelectedProject(project)
     setCompanyName(project.companyName)
-    setHallName(project.hallName)
-    // 法人IDを設定
-    const company = companies.find((c) => c.name === project.companyName)
+    const projectHallNames = project.hallNames.length >= 2 ? project.hallNames : [...project.hallNames, ...Array(2 - project.hallNames.length).fill("")]
+    setHallNames(projectHallNames)
+    // 各ホールの法人IDを設定
+    const projectHallCompanyIds = projectHallNames.map((hallName) => {
+      if (!hallName) return ""
+      const hall = halls.find((h) => h.name === hallName)
+      return hall?.companyId || ""
+    })
+    setHallCompanyIds(projectHallCompanyIds)
+    setHallOpens(Array(projectHallNames.length).fill(false))
+    setCompanyOpens(Array(projectHallNames.length).fill(false))
+    // 法人IDを設定（最初のホールの法人）
+    const firstHall = halls.find((h) => h.name === projectHallNames[0])
+    const company = firstHall ? companies.find((c) => c.id === firstHall.companyId) : companies.find((c) => c.name === project.companyName)
     setSelectedCompanyId(company?.id || "")
+    setSalesPersonId(project.salesPersonId)
     setEventStartDate(project.eventStartDate)
     setEventEndDate(project.eventEndDate)
     setArea(project.area)
@@ -338,8 +374,12 @@ export default function JASEventManager() {
   const handleNewProject = () => {
     setSelectedProject(null)
     setCompanyName("")
-    setHallName("")
+    setHallNames(["", ""])
+    setHallCompanyIds(["", ""])
+    setHallOpens([])
+    setCompanyOpens([])
     setSelectedCompanyId("")
+    setSalesPersonId("")
     setEventStartDate("")
     setEventEndDate("")
     setArea("")
@@ -360,7 +400,11 @@ export default function JASEventManager() {
   const handleAIAutoPropose = () => {
     setCompanyName("株式会社オメガ")
     setSelectedCompanyId("C001")
-    setHallName("オメガホール東京")
+    setHallNames(["オメガホール東京", "オメガホール大阪"])
+    setHallCompanyIds(["C001", "C001"])
+    setHallOpens([false, false])
+    setCompanyOpens([false, false])
+    setSalesPersonId("E001")
     setEventStartDate("2024-12-25")
     setEventEndDate("2024-12-25")
     setArea("東京都渋谷区")
@@ -374,10 +418,21 @@ export default function JASEventManager() {
   }
 
   const handleGenerateQuote = () => {
-    if (!hallName || !eventStartDate || !eventEndDate || !area) {
+    const validHallNames = hallNames.filter((name) => name.trim() !== "")
+    const validHallCompanyIds = hallCompanyIds.filter((id, index) => hallNames[index] && id)
+    if (validHallNames.length < 2 || !eventStartDate || !eventEndDate) {
       toast({
         title: "⚠️ 入力エラー",
-        description: "基本情報を入力してください",
+        description: "基本情報を入力してください（ホールは最低2件必要です）",
+        variant: "destructive",
+      })
+      return
+    }
+    // 各ホールに法人が紐づいているかチェック
+    if (validHallNames.length !== validHallCompanyIds.length) {
+      toast({
+        title: "⚠️ 入力エラー",
+        description: "各ホールに法人を選択してください",
         variant: "destructive",
       })
       return
@@ -385,16 +440,18 @@ export default function JASEventManager() {
     setQuoteGenerated(true)
 
     if (!selectedProject) {
+      const validHallNames = hallNames.filter((name) => name.trim() !== "")
       const newProject: Project = {
         id: `P${String(projects.length + 1).padStart(3, "0")}`,
         companyName,
-        hallName,
+        hallNames: validHallNames,
         eventStartDate,
         eventEndDate,
         area,
         status: "quote-created",
         budget,
         createdAt: new Date().toISOString().split("T")[0],
+        salesPersonId,
         posterCount,
         target,
         quoteItems: [...quoteItems],
@@ -403,20 +460,22 @@ export default function JASEventManager() {
       setSelectedProject(newProject)
     } else {
       // Update existing selected project with new quote data
+      const validHallNames = hallNames.filter((name) => name.trim() !== "")
       const updatedProjects = projects.map((p) =>
         p.id === selectedProject.id
-          ? { ...p, companyName, hallName, eventStartDate, eventEndDate, area, budget, posterCount, target, quoteItems: [...quoteItems] }
+          ? { ...p, companyName, hallNames: validHallNames, eventStartDate, eventEndDate, area, budget, salesPersonId, posterCount, target, quoteItems: [...quoteItems] }
           : p,
       )
       setProjects(updatedProjects)
       setSelectedProject({
         ...selectedProject,
         companyName,
-        hallName,
+        hallNames: validHallNames,
         eventStartDate,
         eventEndDate,
         area,
         budget,
+        salesPersonId,
         posterCount,
         target,
         quoteItems: [...quoteItems],
@@ -832,7 +891,7 @@ export default function JASEventManager() {
                           </div>
 
                           <div>
-                            <h3 className="text-xl font-semibold text-foreground">{project.hallName}</h3>
+                            <h3 className="text-xl font-semibold text-foreground">{project.hallNames.join(" / ")}</h3>
                             <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                               <div className="flex items-center gap-1">
                                 <Calendar className="w-4 h-4" />
@@ -897,116 +956,202 @@ export default function JASEventManager() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="company-name">法人名</Label>
-                    <Popover open={companyOpen} onOpenChange={setCompanyOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={companyOpen}
-                          className="w-full justify-between"
-                        >
-                          {companyName || "法人名を検索..."}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-full p-0" align="start">
-                        <Command>
-                          <CommandInput placeholder="法人名を検索..." />
-                          <CommandList>
-                            <CommandEmpty>法人が見つかりませんでした。</CommandEmpty>
-                            <CommandGroup>
-                              {companies.map((company) => (
-                                <CommandItem
-                                  key={company.id}
-                                  value={company.name}
-                                  onSelect={() => {
-                                    setCompanyName(company.name)
-                                    setSelectedCompanyId(company.id)
-                                    setCompanyOpen(false)
-                                    // ホールをリセット（法人が変わった場合）
-                                    if (hallName) {
-                                      const selectedHall = halls.find(h => h.name === hallName)
-                                      if (!selectedHall || selectedHall.companyId !== company.id) {
-                                        setHallName("")
-                                      }
-                                    }
-                                  }}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label>ホール名（最低2件必要）</Label>
+                    </div>
+                    {hallNames.map((hallName, index) => {
+                      const hallCompanyId = hallCompanyIds[index] || ""
+                      const hallCompany = companies.find((c) => c.id === hallCompanyId)
+                      return (
+                        <div key={index} className="grid grid-cols-4 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor={`company-name-${index}`}>法人名 {index + 1}</Label>
+                            <Popover
+                              open={companyOpens[index] || false}
+                              onOpenChange={(open) => {
+                                const newOpens = [...companyOpens]
+                                newOpens[index] = open
+                                setCompanyOpens(newOpens)
+                              }}
+                            >
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  aria-expanded={companyOpens[index] || false}
+                                  className="w-full justify-between"
                                 >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      companyName === company.name ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  {company.name}
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
+                                  {hallCompany?.name || "法人名を検索..."}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-full p-0" align="start">
+                                <Command>
+                                  <CommandInput placeholder="法人名を検索..." />
+                                  <CommandList>
+                                    <CommandEmpty>法人が見つかりませんでした。</CommandEmpty>
+                                    <CommandGroup>
+                                      {companies.map((company) => (
+                                        <CommandItem
+                                          key={company.id}
+                                          value={company.name}
+                                          onSelect={() => {
+                                            const newHallCompanyIds = [...hallCompanyIds]
+                                            newHallCompanyIds[index] = company.id
+                                            setHallCompanyIds(newHallCompanyIds)
+                                            const newOpens = [...companyOpens]
+                                            newOpens[index] = false
+                                            setCompanyOpens(newOpens)
+                                            // ホールをリセット（法人が変わった場合）
+                                            if (hallName) {
+                                              const selectedHall = halls.find((h) => h.name === hallName)
+                                              if (!selectedHall || selectedHall.companyId !== company.id) {
+                                                const newHallNames = [...hallNames]
+                                                newHallNames[index] = ""
+                                                setHallNames(newHallNames)
+                                              }
+                                            }
+                                            // 最初のホールの場合、法人名と営業担当を設定
+                                            if (index === 0) {
+                                              setCompanyName(company.name)
+                                              setSelectedCompanyId(company.id)
+                                              setSalesPersonId(company.salesPersonId)
+                                            }
+                                          }}
+                                        >
+                                          <Check
+                                            className={cn(
+                                              "mr-2 h-4 w-4",
+                                              hallCompanyId === company.id ? "opacity-100" : "opacity-0"
+                                            )}
+                                          />
+                                          {company.name}
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>法人の営業担当 {index + 1}</Label>
+                            <Input
+                              readOnly
+                              value={
+                                hallCompanyId
+                                  ? employees.find((e) => e.id === hallCompany?.salesPersonId)?.name || "未設定"
+                                  : "法人を選択してください"
+                              }
+                              className="bg-muted"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`hall-name-${index}`}>ホール名 {index + 1}</Label>
+                            <Popover
+                              open={hallOpens[index] || false}
+                              onOpenChange={(open) => {
+                                const newOpens = [...hallOpens]
+                                newOpens[index] = open
+                                setHallOpens(newOpens)
+                              }}
+                            >
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  aria-expanded={hallOpens[index] || false}
+                                  className="w-full justify-between"
+                                  disabled={!hallCompanyId}
+                                >
+                                  {hallName || "ホール名を検索..."}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-full p-0" align="start">
+                                <Command>
+                                  <CommandInput placeholder="ホール名または法人名を検索..." />
+                                  <CommandList>
+                                    <CommandEmpty>ホールが見つかりませんでした。</CommandEmpty>
+                                    <CommandGroup>
+                                      {(hallCompanyId
+                                        ? halls.filter((h) => h.companyId === hallCompanyId)
+                                        : halls
+                                      ).map((hall) => {
+                                        const company = companies.find((c) => c.id === hall.companyId)
+                                        const searchValue = `${hall.name} ${company?.name || ""}`
+                                        return (
+                                          <CommandItem
+                                            key={hall.id}
+                                            value={searchValue}
+                                            onSelect={() => {
+                                              const newHallNames = [...hallNames]
+                                              newHallNames[index] = hall.name
+                                              setHallNames(newHallNames)
+                                              const newHallCompanyIds = [...hallCompanyIds]
+                                              newHallCompanyIds[index] = hall.companyId
+                                              setHallCompanyIds(newHallCompanyIds)
+                                              const newOpens = [...hallOpens]
+                                              newOpens[index] = false
+                                              setHallOpens(newOpens)
+                                              // 最初のホールの場合、法人名と営業担当を設定
+                                              if (index === 0) {
+                                                if (company) {
+                                                  setCompanyName(company.name)
+                                                  setSelectedCompanyId(company.id)
+                                                }
+                                                setSalesPersonId(hall.salesPersonId)
+                                              }
+                                            }}
+                                          >
+                                            <Check
+                                              className={cn(
+                                                "mr-2 h-4 w-4",
+                                                hallName === hall.name ? "opacity-100" : "opacity-0"
+                                              )}
+                                            />
+                                            {hall.name} {company && `(${company.name})`}
+                                          </CommandItem>
+                                        )
+                                      })}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>ホールの営業担当 {index + 1}</Label>
+                            <Input
+                              readOnly
+                              value={
+                                hallName
+                                  ? employees.find((e) => e.id === halls.find((h) => h.name === hallName)?.salesPersonId)?.name || "未設定"
+                                  : "ホールを選択してください"
+                              }
+                              className="bg-muted"
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setHallNames([...hallNames, ""])
+                        setHallCompanyIds([...hallCompanyIds, ""])
+                        setHallOpens([...hallOpens, false])
+                        setCompanyOpens([...companyOpens, false])
+                      }}
+                      className="w-full"
+                    >
+                      + ホールを追加
+                    </Button>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="hall-name">ホール名</Label>
-                      <Popover open={hallOpen} onOpenChange={setHallOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={hallOpen}
-                            className="w-full justify-between"
-                          >
-                            {hallName || "ホール名を検索..."}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-full p-0" align="start">
-                          <Command>
-                            <CommandInput placeholder="ホール名を検索..." />
-                            <CommandList>
-                              <CommandEmpty>ホールが見つかりませんでした。</CommandEmpty>
-                              <CommandGroup>
-                                {(selectedCompanyId
-                                  ? halls.filter((h) => h.companyId === selectedCompanyId)
-                                  : halls
-                                ).map((hall) => {
-                                  const company = companies.find((c) => c.id === hall.companyId)
-                                  return (
-                                    <CommandItem
-                                      key={hall.id}
-                                      value={hall.name}
-                                      onSelect={() => {
-                                        setHallName(hall.name)
-                                        setHallOpen(false)
-                                        // 法人を自動入力
-                                        if (company) {
-                                          setCompanyName(company.name)
-                                          setSelectedCompanyId(company.id)
-                                        }
-                                      }}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          hallName === hall.name ? "opacity-100" : "opacity-0"
-                                        )}
-                                      />
-                                      {hall.name} {company && `(${company.name})`}
-                                    </CommandItem>
-                                  )
-                                })}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-
                     <div className="space-y-2">
                       <Label htmlFor="event-start-date">イベント開始日</Label>
                       <Input
@@ -1016,9 +1161,7 @@ export default function JASEventManager() {
                         onChange={(e) => setEventStartDate(e.target.value)}
                       />
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="event-end-date">イベント終了日</Label>
                       <Input
@@ -1031,13 +1174,48 @@ export default function JASEventManager() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="area">エリア</Label>
-                    <Input
-                      id="area"
-                      placeholder="例: 東京都渋谷区"
-                      value={area}
-                      onChange={(e) => setArea(e.target.value)}
-                    />
+                    <Label htmlFor="sales-person">本案件の営業担当</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className="w-full justify-between"
+                        >
+                          {salesPersonId
+                            ? employees.find((e) => e.id === salesPersonId)?.name || "営業担当を選択..."
+                            : "営業担当を選択..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="営業担当を検索..." />
+                          <CommandList>
+                            <CommandEmpty>営業担当が見つかりませんでした。</CommandEmpty>
+                            <CommandGroup>
+                              {employees.map((employee) => (
+                                <CommandItem
+                                  key={employee.id}
+                                  value={employee.name}
+                                  onSelect={() => {
+                                    setSalesPersonId(employee.id)
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      salesPersonId === employee.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {employee.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">
