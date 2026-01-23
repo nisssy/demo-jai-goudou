@@ -65,6 +65,7 @@ type Company = {
   id: string
   name: string
   salesPersonId: string
+  email?: string
 }
 
 type Hall = {
@@ -72,6 +73,7 @@ type Hall = {
   name: string
   companyId: string
   salesPersonId: string
+  email?: string
 }
 
 type Project = {
@@ -123,20 +125,20 @@ export default function JASEventManager() {
 
   // 擬似DB: 法人とホールのデータ
   const companies: Company[] = [
-    { id: "C001", name: "株式会社オメガ", salesPersonId: "E001" },
-    { id: "C002", name: "株式会社メガ", salesPersonId: "E002" },
-    { id: "C003", name: "株式会社サンライズ", salesPersonId: "E003" },
-    { id: "C004", name: "株式会社スカイ", salesPersonId: "E004" },
-    { id: "C005", name: "株式会社デルタ", salesPersonId: "E005" },
+    { id: "C001", name: "株式会社オメガ", salesPersonId: "E001", email: "omega@example.com" },
+    { id: "C002", name: "株式会社メガ", salesPersonId: "E002", email: "mega@example.com" },
+    { id: "C003", name: "株式会社サンライズ", salesPersonId: "E003", email: "sunrise@example.com" },
+    { id: "C004", name: "株式会社スカイ", salesPersonId: "E004", email: "sky@example.com" },
+    { id: "C005", name: "株式会社デルタ", salesPersonId: "E005", email: "delta@example.com" },
   ]
 
   const halls: Hall[] = [
-    { id: "H001", name: "オメガホール東京", companyId: "C001", salesPersonId: "E001" },
-    { id: "H002", name: "オメガホール大阪", companyId: "C001", salesPersonId: "E001" },
-    { id: "H003", name: "オメガホール名古屋", companyId: "C001", salesPersonId: "E006" },
-    { id: "H004", name: "メガホール大阪", companyId: "C002", salesPersonId: "E002" },
-    { id: "H005", name: "メガホール東京", companyId: "C002", salesPersonId: "E002" },
-    { id: "H006", name: "サンライズホール名古屋", companyId: "C003", salesPersonId: "E003" },
+    { id: "H001", name: "オメガホール東京", companyId: "C001", salesPersonId: "E001", email: "omega-tokyo@example.com" },
+    { id: "H002", name: "オメガホール大阪", companyId: "C001", salesPersonId: "E001", email: "omega-osaka@example.com" },
+    { id: "H003", name: "オメガホール名古屋", companyId: "C001", salesPersonId: "E006", email: "omega-nagoya@example.com" },
+    { id: "H004", name: "メガホール大阪", companyId: "C002", salesPersonId: "E002", email: "mega-osaka@example.com" },
+    { id: "H005", name: "メガホール東京", companyId: "C002", salesPersonId: "E002", email: "mega-tokyo@example.com" },
+    { id: "H006", name: "サンライズホール名古屋", companyId: "C003", salesPersonId: "E003", email: "sunrise-nagoya@example.com" },
     { id: "H007", name: "サンライズホール福岡", companyId: "C003", salesPersonId: "E003" },
     { id: "H008", name: "スカイホール福岡", companyId: "C004", salesPersonId: "E004" },
     { id: "H009", name: "スカイホール広島", companyId: "C004", salesPersonId: "E004" },
@@ -267,6 +269,14 @@ export default function JASEventManager() {
   const [projectStatus, setProjectStatus] = useState<"draft" | "confirmed" | "in-progress" | "completed">("draft")
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showWorkflowModal, setShowWorkflowModal] = useState(false)
+  const [workflowHallName, setWorkflowHallName] = useState<string>("")
+  const [workflowSlideIndex, setWorkflowSlideIndex] = useState(0)
+  const [workflowFrom, setWorkflowFrom] = useState<string>("")
+  const [workflowToType, setWorkflowToType] = useState<"company" | "hall">("hall")
+  const [workflowCc, setWorkflowCc] = useState<string[]>([])
+  const [workflowBcc, setWorkflowBcc] = useState<string[]>([])
+  const [workflowMessageTemplate, setWorkflowMessageTemplate] = useState<string>("")
+  const [workflowMessage, setWorkflowMessage] = useState<string>("")
   const [hallQuotes, setHallQuotes] = useState<{ [hallName: string]: QuoteItem[] }>({})
   const [hallPercentages, setHallPercentages] = useState<{ [hallName: string]: number }>({})
   const [totalQuoteItems, setTotalQuoteItems] = useState<{ [itemId: number]: string }>({
@@ -1816,7 +1826,10 @@ export default function JASEventManager() {
                                 PDF出力
                               </Button>
                               <Button
-                                onClick={() => setShowWorkflowModal(true)}
+                                onClick={() => {
+                                  setWorkflowHallName(hallName)
+                                  setShowWorkflowModal(true)
+                                }}
                                 className="flex-1 bg-gradient-to-r from-primary to-blue-600"
                               >
                                 <Send className="w-4 h-4 mr-2" />
@@ -2854,46 +2867,369 @@ export default function JASEventManager() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showWorkflowModal} onOpenChange={setShowWorkflowModal}>
-        <DialogContent>
+      <Dialog open={showWorkflowModal} onOpenChange={(open) => {
+        setShowWorkflowModal(open)
+        if (!open) {
+          setWorkflowSlideIndex(0)
+          setWorkflowHallName("")
+          setWorkflowFrom("")
+          setWorkflowToType("hall")
+          setWorkflowCc([])
+          setWorkflowBcc([])
+          setWorkflowMessageTemplate("")
+          setWorkflowMessage("")
+        }
+      }}>
+        <DialogContent className="max-w-2xl overflow-hidden">
           <DialogHeader>
             <DialogTitle>顧客へ通知</DialogTitle>
             <DialogDescription>ワークフローで見積書を自動通知します</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>送信先</Label>
-              <Input placeholder="customer@example.com" type="email" />
-            </div>
+          <div className="relative overflow-hidden">
+            <div 
+              className="flex transition-transform duration-300 ease-in-out"
+              style={{ transform: `translateX(-${workflowSlideIndex * 100}%)` }}
+            >
+              {/* スライド1: 送信先設定 */}
+              <div className="min-w-full px-1 space-y-4">
+                <div className="space-y-2">
+                  <Label>From（送信元）</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between"
+                      >
+                        {workflowFrom
+                          ? employees.find((e) => e.id === workflowFrom)?.name || "従業員を選択..."
+                          : "従業員を選択..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="従業員を検索..." />
+                        <CommandList>
+                          <CommandEmpty>従業員が見つかりませんでした。</CommandEmpty>
+                          <CommandGroup>
+                            {employees.map((employee) => (
+                              <CommandItem
+                                key={employee.id}
+                                value={employee.name}
+                                onSelect={() => {
+                                  setWorkflowFrom(employee.id)
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    workflowFrom === employee.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {employee.name} {employee.email && `(${employee.email})`}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
 
-            <div className="space-y-2">
-              <Label>CC (営業)</Label>
-              <Input placeholder="sales@example.com" type="email" />
-            </div>
+                <div className="space-y-2">
+                  <Label>To（送信先）</Label>
+                  <div className="space-y-2">
+                    {(() => {
+                      const selectedHall = halls.find((h) => h.name === workflowHallName)
+                      const selectedCompany = selectedHall ? companies.find((c) => c.id === selectedHall.companyId) : null
+                      
+                      return (
+                        <>
+                          <div className="flex gap-2">
+                            <Button
+                              variant={workflowToType === "company" ? "default" : "outline"}
+                              onClick={() => setWorkflowToType("company")}
+                              className="flex-1"
+                            >
+                              法人({selectedCompany?.name || "-"})
+                            </Button>
+                            <Button
+                              variant={workflowToType === "hall" ? "default" : "outline"}
+                              onClick={() => setWorkflowToType("hall")}
+                              className="flex-1"
+                            >
+                              ホール({selectedHall?.name || "-"})
+                            </Button>
+                          </div>
+                          <Input
+                            type="email"
+                            placeholder="メールアドレス"
+                            value={
+                              workflowToType === "company"
+                                ? selectedCompany?.email || ""
+                                : selectedHall?.email || ""
+                            }
+                            readOnly
+                            className="bg-muted"
+                          />
+                        </>
+                      )
+                    })()}
+                  </div>
+                </div>
 
-            <div className="space-y-2">
-              <Label>メッセージ</Label>
-              <textarea
-                className="w-full p-2 border rounded-md min-h-[100px]"
-                placeholder="お見積書をお送りいたします..."
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label>CC（カーボンコピー）</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between"
+                      >
+                        {workflowCc.length > 0
+                          ? `${workflowCc.length}名選択中`
+                          : "従業員を選択..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="従業員を検索..." />
+                        <CommandList>
+                          <CommandEmpty>従業員が見つかりませんでした。</CommandEmpty>
+                          <CommandGroup>
+                            {employees.map((employee) => (
+                              <CommandItem
+                                key={employee.id}
+                                value={employee.name}
+                                onSelect={() => {
+                                  if (workflowCc.includes(employee.id)) {
+                                    setWorkflowCc(workflowCc.filter((id) => id !== employee.id))
+                                  } else {
+                                    setWorkflowCc([...workflowCc, employee.id])
+                                  }
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    workflowCc.includes(employee.id) ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {employee.name} {employee.email && `(${employee.email})`}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {workflowCc.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {workflowCc.map((id) => {
+                        const employee = employees.find((e) => e.id === id)
+                        return employee ? (
+                          <Badge key={id} variant="secondary">
+                            {employee.name}
+                            <button
+                              onClick={() => setWorkflowCc(workflowCc.filter((eid) => eid !== id))}
+                              className="ml-2 hover:text-destructive"
+                            >
+                              ×
+                            </button>
+                          </Badge>
+                        ) : null
+                      })}
+                    </div>
+                  )}
+                </div>
 
-            <div className="flex gap-3 pt-4">
-              <Button variant="outline" onClick={() => setShowWorkflowModal(false)} className="flex-1">
-                キャンセル
+                <div className="space-y-2">
+                  <Label>BCC（ブラインドカーボンコピー）</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between"
+                      >
+                        {workflowBcc.length > 0
+                          ? `${workflowBcc.length}名選択中`
+                          : "従業員を選択..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="従業員を検索..." />
+                        <CommandList>
+                          <CommandEmpty>従業員が見つかりませんでした。</CommandEmpty>
+                          <CommandGroup>
+                            {employees.map((employee) => (
+                              <CommandItem
+                                key={employee.id}
+                                value={employee.name}
+                                onSelect={() => {
+                                  if (workflowBcc.includes(employee.id)) {
+                                    setWorkflowBcc(workflowBcc.filter((id) => id !== employee.id))
+                                  } else {
+                                    setWorkflowBcc([...workflowBcc, employee.id])
+                                  }
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    workflowBcc.includes(employee.id) ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {employee.name} {employee.email && `(${employee.email})`}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {workflowBcc.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {workflowBcc.map((id) => {
+                        const employee = employees.find((e) => e.id === id)
+                        return employee ? (
+                          <Badge key={id} variant="secondary">
+                            {employee.name}
+                            <button
+                              onClick={() => setWorkflowBcc(workflowBcc.filter((eid) => eid !== id))}
+                              className="ml-2 hover:text-destructive"
+                            >
+                              ×
+                            </button>
+                          </Badge>
+                        ) : null
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* スライド2: メッセージ本文 */}
+              <div className="min-w-full px-1 space-y-4">
+                <div className="space-y-2">
+                  <Label>メッセージテンプレート</Label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { id: "template1", name: "テンプレート1: 標準", content: "お世話になっております。\n\nこの度は、お見積書をご送付いたします。\nご確認のほど、よろしくお願いいたします。\n\n何かご不明な点がございましたら、お気軽にお問い合わせください。\n\nよろしくお願いいたします。" },
+                      { id: "template2", name: "テンプレート2: 丁寧", content: "いつもお世話になっております。\n\n本日は、お見積書をお送りさせていただきます。\n詳細につきましては、添付の見積書をご確認ください。\n\nご不明な点やご質問がございましたら、遠慮なくお申し付けください。\n\n今後ともよろしくお願い申し上げます。" },
+                      { id: "template3", name: "テンプレート3: 簡潔", content: "お見積書をお送りします。\nご確認をお願いいたします。\n\nご質問等ございましたら、お気軽にご連絡ください。" },
+                    ].map((template) => (
+                      <Button
+                        key={template.id}
+                        variant={workflowMessageTemplate === template.id ? "default" : "outline"}
+                        onClick={() => {
+                          setWorkflowMessageTemplate(template.id)
+                          setWorkflowMessage(template.content)
+                        }}
+                        className="justify-start text-left h-auto py-2"
+                      >
+                        {template.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>メッセージ本文</Label>
+                  <Textarea
+                    value={workflowMessage}
+                    onChange={(e) => setWorkflowMessage(e.target.value)}
+                    placeholder="メッセージを入力してください..."
+                    className="min-h-[200px]"
+                  />
+                </div>
+              </div>
+
+              {/* スライド3: プレビュー */}
+              <div className="min-w-full px-1 space-y-4">
+                <div className="space-y-2">
+                  <Label>プレビュー</Label>
+                  <Card className="border">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="space-y-1 text-sm">
+                        <div><span className="font-semibold">From:</span> {workflowFrom ? employees.find((e) => e.id === workflowFrom)?.email || "" : "-"}</div>
+                        {(() => {
+                          const selectedHall = halls.find((h) => h.name === workflowHallName)
+                          const selectedCompany = selectedHall ? companies.find((c) => c.id === selectedHall.companyId) : null
+                          return (
+                            <div>
+                              <span className="font-semibold">To:</span> {
+                                workflowToType === "company"
+                                  ? selectedCompany?.email || "-"
+                                  : selectedHall?.email || "-"
+                              }
+                            </div>
+                          )
+                        })()}
+                        {workflowCc.length > 0 && (
+                          <div><span className="font-semibold">CC:</span> {workflowCc.map((id) => employees.find((e) => e.id === id)?.email).filter(Boolean).join(", ")}</div>
+                        )}
+                        {workflowBcc.length > 0 && (
+                          <div><span className="font-semibold">BCC:</span> {workflowBcc.map((id) => employees.find((e) => e.id === id)?.email).filter(Boolean).join(", ")}</div>
+                        )}
+                      </div>
+                      <div className="border-t pt-3">
+                        <div className="whitespace-pre-wrap text-sm">{workflowMessage || "メッセージが入力されていません"}</div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-4 border-t">
+            <div className="flex gap-2">
+              {[0, 1, 2].map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setWorkflowSlideIndex(index)}
+                  className={`h-2 w-2 rounded-full transition-colors ${
+                    workflowSlideIndex === index ? "bg-primary" : "bg-muted"
+                  }`}
+                  aria-label={`スライド ${index + 1}`}
+                />
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  if (workflowSlideIndex > 0) {
+                    setWorkflowSlideIndex(workflowSlideIndex - 1)
+                  } else {
+                    setShowWorkflowModal(false)
+                  }
+                }}
+              >
+                {workflowSlideIndex === 0 ? "キャンセル" : "戻る"}
               </Button>
               <Button
                 onClick={() => {
-                  setShowWorkflowModal(false)
-                  toast({
-                    title: "📧 通知送信完了",
-                    description: "見積書が顧客に送信されました",
-                  })
+                  const totalSlides = 3
+                  if (workflowSlideIndex < totalSlides - 1) {
+                    setWorkflowSlideIndex(workflowSlideIndex + 1)
+                  } else {
+                    setShowWorkflowModal(false)
+                    toast({
+                      title: "📧 通知送信完了",
+                      description: "見積書が顧客に送信されました",
+                    })
+                  }
                 }}
-                className="flex-1 bg-gradient-to-r from-primary to-blue-600"
+                className="bg-gradient-to-r from-primary to-blue-600"
               >
-                送信
+                {workflowSlideIndex === 2 ? "送信" : "次へ"}
               </Button>
             </div>
           </div>
