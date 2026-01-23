@@ -101,6 +101,8 @@ type QuoteItem = {
 type HallQuote = {
   hallName: string
   quoteItems: QuoteItem[]
+  percentage?: number
+  calculatedAmount?: number
 }
 
 export default function JASEventManager() {
@@ -259,9 +261,6 @@ export default function JASEventManager() {
   const [eventStartDate, setEventStartDate] = useState("")
   const [eventEndDate, setEventEndDate] = useState("")
   const [area, setArea] = useState("")
-  const [posterCount, setPosterCount] = useState("")
-  const [budget, setBudget] = useState("")
-  const [target, setTarget] = useState("")
   const [syncLoading, setSyncLoading] = useState(false)
 
   const [quoteGenerated, setQuoteGenerated] = useState(false)
@@ -269,12 +268,20 @@ export default function JASEventManager() {
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showWorkflowModal, setShowWorkflowModal] = useState(false)
   const [hallQuotes, setHallQuotes] = useState<{ [hallName: string]: QuoteItem[] }>({})
+  const [hallPercentages, setHallPercentages] = useState<{ [hallName: string]: number }>({})
+  const [totalQuoteItems, setTotalQuoteItems] = useState<{ [itemId: number]: string }>({
+    1: "50000", // ポスターデザイン
+    3: "150000", // DM発送代行
+    4: "30000", // 抽選システム利用料
+  })
+  const [posterPrintQuantity, setPosterPrintQuantity] = useState<string>("50")
+  const [posterPrintUnitPrice, setPosterPrintUnitPrice] = useState<string>("2000")
   
   const defaultQuoteItems: QuoteItem[] = [
-    { id: 1, name: "ポスターデザイン", quantity: 1, unitPrice: 50000, included: true },
-    { id: 2, name: "ポスター印刷", quantity: 50, unitPrice: 2000, included: true },
-    { id: 3, name: "DM発送代行", quantity: 1000, unitPrice: 150, included: true },
-    { id: 4, name: "抽選システム利用料", quantity: 1, unitPrice: 30000, included: true },
+    { id: 1, name: "ポスターデザイン", quantity: 1, unitPrice: 0, included: true },
+    { id: 2, name: "ポスター印刷", quantity: 1, unitPrice: 0, included: true },
+    { id: 3, name: "DM発送代行", quantity: 1, unitPrice: 0, included: true },
+    { id: 4, name: "抽選システム利用料", quantity: 1, unitPrice: 0, included: true },
   ]
 
   // Screen 2: Production State
@@ -401,9 +408,6 @@ export default function JASEventManager() {
     setEventStartDate(project.eventStartDate)
     setEventEndDate(project.eventEndDate)
     setArea(project.area)
-    setBudget(project.budget)
-    setPosterCount(project.posterCount || "")
-    setTarget(project.target || "")
     setProjectStatus(
       project.status === "confirmed" ? "confirmed" : project.status === "in-progress" ? "in-progress" : "draft",
     )
@@ -412,14 +416,77 @@ export default function JASEventManager() {
       setQuoteGenerated(true)
       if (project.hallQuotes) {
         const quotesMap: { [hallName: string]: QuoteItem[] } = {}
+        const percentagesMap: { [hallName: string]: number } = {}
         project.hallQuotes.forEach((hallQuote) => {
           quotesMap[hallQuote.hallName] = hallQuote.quoteItems
+          if (hallQuote.percentage !== undefined) {
+            percentagesMap[hallQuote.hallName] = hallQuote.percentage
+          }
         })
         setHallQuotes(quotesMap)
+        setHallPercentages(percentagesMap)
+        // 各項目の全体金額を計算（各ホールの項目金額から逆算）
+        const totalItemsMap: { [itemId: number]: string } = {}
+        defaultQuoteItems.forEach((item) => {
+          // ポスター印刷の場合は枚数と単価を復元
+          if (item.id === 2) {
+            // 最初のホールから枚数と単価を取得
+            const firstHallQuote = project.hallQuotes?.[0]
+            if (firstHallQuote) {
+              const hallItem = firstHallQuote.quoteItems.find((qi) => qi.id === item.id)
+              if (hallItem && hallItem.unitPrice > 0) {
+                // 単価を復元
+                setPosterPrintUnitPrice(hallItem.unitPrice.toString())
+                // 全体の枚数を計算（各ホールの枚数を合計）
+                let totalQuantity = 0
+                project.hallQuotes?.forEach((hq) => {
+                  const hItem = hq.quoteItems.find((qi) => qi.id === item.id)
+                  if (hItem) {
+                    totalQuantity += hItem.quantity
+                  }
+                })
+                if (totalQuantity > 0) {
+                  setPosterPrintQuantity(totalQuantity.toString())
+                  // 全体金額を計算
+                  const totalAmount = totalQuantity * hallItem.unitPrice
+                  totalItemsMap[item.id] = totalAmount.toString()
+                }
+              }
+            }
+          } else {
+            // その他の項目は金額から逆算
+            let totalItemAmount = 0
+            project.hallQuotes?.forEach((hq) => {
+              const hallItem = hq.quoteItems.find((qi) => qi.id === item.id)
+              if (hallItem && hq.percentage && hq.percentage > 0) {
+                const itemTotal = hallItem.unitPrice * hallItem.quantity
+                const itemTotalAmount = Math.floor((itemTotal * 100) / hq.percentage)
+                // 最大値を採用（端数の影響を考慮）
+                if (itemTotalAmount > totalItemAmount) {
+                  totalItemAmount = itemTotalAmount
+                }
+              }
+            })
+            if (totalItemAmount > 0) {
+              totalItemsMap[item.id] = totalItemAmount.toString()
+            }
+          }
+        })
+        setTotalQuoteItems(totalItemsMap)
+      } else {
+        setTotalQuoteItems({})
       }
     } else {
       setQuoteGenerated(false)
       setHallQuotes({})
+      setHallPercentages({})
+      setTotalQuoteItems({
+        1: "50000", // ポスターデザイン
+        3: "150000", // DM発送代行
+        4: "30000", // 抽選システム利用料
+      })
+      setPosterPrintQuantity("50")
+      setPosterPrintUnitPrice("2000")
     }
 
     setCurrentScreen("proposal")
@@ -437,12 +504,17 @@ export default function JASEventManager() {
     setEventStartDate("")
     setEventEndDate("")
     setArea("")
-    setPosterCount("")
-    setBudget("")
-    setTarget("")
     setQuoteGenerated(false)
     setProjectStatus("draft")
     setHallQuotes({})
+    setHallPercentages({})
+    setTotalQuoteItems({
+      1: "50000", // ポスターデザイン
+      3: "150000", // DM発送代行
+      4: "30000", // 抽選システム利用料
+    })
+    setPosterPrintQuantity("50")
+    setPosterPrintUnitPrice("2000")
     setCurrentScreen("proposal")
   }
 
@@ -457,9 +529,6 @@ export default function JASEventManager() {
     setEventStartDate("2024-12-25")
     setEventEndDate("2024-12-25")
     setArea("東京都渋谷区")
-    setPosterCount("50")
-    setBudget("300,000")
-    setTarget("男性30代")
     toast({
       title: "✨ AI自動提案完了",
       description: "過去の類似案件から最適な提案を生成しました",
@@ -493,19 +562,84 @@ export default function JASEventManager() {
       })
       return
     }
+    
+    // 各項目の金額を計算
+    const posterPrintQty = parseFloat(posterPrintQuantity) || 0
+    const posterPrintPrice = parseFloat(posterPrintUnitPrice) || 0
+    const posterPrintAmount = posterPrintQty * posterPrintPrice
+    const totalAmount = Object.values(totalQuoteItems).reduce((sum, amount) => {
+      return sum + (parseFloat(amount) || 0)
+    }, 0) + posterPrintAmount
+    
+    if (totalAmount <= 0) {
+      toast({
+        title: "⚠️ 入力エラー",
+        description: "各項目の金額を入力してください",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    const totalPercentage = Object.values(hallPercentages).reduce((sum, p) => sum + p, 0)
+    if (Math.abs(totalPercentage - 100) > 0.01) {
+      toast({
+        title: "⚠️ 入力エラー",
+        description: "各ホールの割合の合計が100%になるように設定してください",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    // 端数チェック（各項目ごとに）
+    // 警告は表示するが、続行は可能
+    
     // 各ホールごとに見積もりを生成
     const newHallQuotes: { [hallName: string]: QuoteItem[] } = {}
     validHallNames.forEach((hallName) => {
-      newHallQuotes[hallName] = JSON.parse(JSON.stringify(defaultQuoteItems))
+      const percentage = hallPercentages[hallName] || 0
+      // 各項目の全体金額から、割合で各ホールの金額を計算
+      const hallQuoteItems: QuoteItem[] = defaultQuoteItems.map((item) => {
+        if (item.id === 2) {
+          // ポスター印刷の場合は、全体の枚数と単価から各ホールの金額を計算
+          const totalPosterAmount = posterPrintQty * posterPrintPrice
+          const hallPosterAmount = Math.floor((totalPosterAmount * percentage) / 100)
+          // 各ホールの枚数 = 各ホールの金額 / 単価（端数切り捨て）
+          const hallPosterQty = posterPrintPrice > 0 ? Math.floor(hallPosterAmount / posterPrintPrice) : 0
+          return {
+            ...item,
+            unitPrice: posterPrintPrice,
+            quantity: hallPosterQty,
+          }
+        } else {
+          // その他の項目は金額ベースで分配
+          const totalItemAmount = parseFloat(totalQuoteItems[item.id] || "0") || 0
+          const hallItemAmount = Math.floor((totalItemAmount * percentage) / 100)
+          return {
+            ...item,
+            unitPrice: hallItemAmount,
+            quantity: 1,
+          }
+        }
+      })
+      newHallQuotes[hallName] = hallQuoteItems
     })
     setHallQuotes(newHallQuotes)
     setQuoteGenerated(true)
 
     if (!selectedProject) {
-      const hallQuotesArray: HallQuote[] = validHallNames.map((hallName) => ({
-        hallName,
-        quoteItems: newHallQuotes[hallName],
-      }))
+      // 各項目の合計金額を計算（既に計算済みのtotalAmountを使用）
+      const calculatedTotalAmount = totalAmount
+      
+      const hallQuotesArray: HallQuote[] = validHallNames.map((hallName) => {
+        const percentage = hallPercentages[hallName] || 0
+        const calculatedAmount = Math.floor((calculatedTotalAmount * percentage) / 100)
+        return {
+          hallName,
+          quoteItems: newHallQuotes[hallName],
+          percentage,
+          calculatedAmount,
+        }
+      })
       const newProject: Project = {
         id: `P${String(projects.length + 1).padStart(3, "0")}`,
         companyName,
@@ -514,24 +648,31 @@ export default function JASEventManager() {
         eventEndDate,
         area,
         status: "quote-created",
-        budget,
+        budget: "",
         createdAt: new Date().toISOString().split("T")[0],
         salesPersonId,
-        posterCount,
-        target,
         hallQuotes: hallQuotesArray,
       }
       setProjects([...projects, newProject])
       setSelectedProject(newProject)
     } else {
       // Update existing selected project with new quote data
-      const hallQuotesArray: HallQuote[] = validHallNames.map((hallName) => ({
-        hallName,
-        quoteItems: newHallQuotes[hallName],
-      }))
+      // 各項目の合計金額を計算（既に計算済みのtotalAmountを使用）
+      const calculatedTotalAmount = totalAmount
+      
+      const hallQuotesArray: HallQuote[] = validHallNames.map((hallName) => {
+        const percentage = hallPercentages[hallName] || 0
+        const calculatedAmount = Math.floor((calculatedTotalAmount * percentage) / 100)
+        return {
+          hallName,
+          quoteItems: newHallQuotes[hallName],
+          percentage,
+          calculatedAmount,
+        }
+      })
       const updatedProjects = projects.map((p) =>
         p.id === selectedProject.id
-          ? { ...p, companyName, hallNames: validHallNames, eventStartDate, eventEndDate, area, budget, salesPersonId, posterCount, target, hallQuotes: hallQuotesArray }
+          ? { ...p, companyName, hallNames: validHallNames, eventStartDate, eventEndDate, area, salesPersonId, hallQuotes: hallQuotesArray }
           : p,
       )
       setProjects(updatedProjects)
@@ -542,10 +683,7 @@ export default function JASEventManager() {
         eventStartDate,
         eventEndDate,
         area,
-        budget,
         salesPersonId,
-        posterCount,
-        target,
         hallQuotes: hallQuotesArray,
       })
     }
@@ -584,7 +722,13 @@ export default function JASEventManager() {
 
   const calculateQuoteTotal = (hallName: string) => {
     const quoteItems = hallQuotes[hallName] || []
-    return quoteItems.filter((item) => item.included).reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
+    return quoteItems.filter((item) => item.included).reduce((sum, item) => {
+      // ポスター印刷の場合は quantity × unitPrice、その他は unitPrice
+      if (item.id === 2) {
+        return sum + item.quantity * item.unitPrice
+      }
+      return sum + item.unitPrice
+    }, 0)
   }
 
   const calculateAllQuotesTotal = () => {
@@ -1144,7 +1288,6 @@ export default function JASEventManager() {
                                   role="combobox"
                                   aria-expanded={hallOpens[index] || false}
                                   className="w-full justify-between"
-                                  disabled={!hallCompanyId}
                                 >
                                   {hallName || "ホール名を検索..."}
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -1156,10 +1299,7 @@ export default function JASEventManager() {
                                   <CommandList>
                                     <CommandEmpty>ホールが見つかりませんでした。</CommandEmpty>
                                     <CommandGroup>
-                                      {(hallCompanyId
-                                        ? halls.filter((h) => h.companyId === hallCompanyId)
-                                        : halls
-                                      ).map((hall) => {
+                                      {halls.map((hall) => {
                                         const company = companies.find((c) => c.id === hall.companyId)
                                         const searchValue = `${hall.name} ${company?.name || ""}`
                                         return (
@@ -1298,121 +1438,418 @@ export default function JASEventManager() {
                       </PopoverContent>
                     </Popover>
                   </div>
-
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="poster-count">ポスター枚数</Label>
-                      <Input
-                        id="poster-count"
-                        type="number"
-                        placeholder="50"
-                        value={posterCount}
-                        onChange={(e) => setPosterCount(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="budget">予算（円）</Label>
-                      <Input
-                        id="budget"
-                        placeholder="300,000"
-                        value={budget}
-                        onChange={(e) => setBudget(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="target">ターゲット</Label>
-                      <Input
-                        id="target"
-                        placeholder="男性30代"
-                        value={target}
-                        onChange={(e) => setTarget(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <Button
-                    onClick={handleGenerateQuote}
-                    className="w-full bg-gradient-to-r from-primary to-blue-600 text-primary-foreground"
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    見積もりを作成
-                  </Button>
                 </CardContent>
               </Card>
 
-              {quoteGenerated && (
-                <div className="space-y-6">
-                  {hallNames.filter((name) => name.trim() !== "").map((hallName, index) => {
-                    const quoteItems = hallQuotes[hallName] || []
-                    return (
-                      <Card key={index} className="border-2 border-primary/20">
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <FileText className="w-5 h-5" />
-                            {hallName} の見積もり
-                          </CardTitle>
-                          <CardDescription>見積内容を確認し、含める項目を選択してください</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div className="space-y-3">
-                            {quoteItems.map((item) => (
-                              <div key={item.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                                <div className="flex items-center gap-3">
-                                  <Switch
-                                    checked={item.included}
-                                    onCheckedChange={() => toggleQuoteItem(hallName, item.id)}
-                                  />
-                                  <div>
-                                    <p className="font-medium">{item.name}</p>
-                                    <p className="text-sm text-muted-foreground">
-                                      単価: ¥{item.unitPrice.toLocaleString()} × {item.quantity}
-                                    </p>
-                                  </div>
-                                </div>
-                                <p className="font-semibold">¥{(item.quantity * item.unitPrice).toLocaleString()}</p>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="border-t pt-4 flex justify-between items-center">
-                            <span className="text-lg font-semibold">合計金額</span>
-                            <span className="text-2xl font-bold text-primary">
-                              ¥{calculateQuoteTotal(hallName).toLocaleString()}
-                            </span>
-                          </div>
-
-                          <div className="flex gap-3">
-                            <Button onClick={() => setShowPdfModal(true)} variant="outline" className="flex-1">
-                              <FileCheck className="w-4 h-4 mr-2" />
-                              PDF出力
-                            </Button>
-                            <Button
-                              onClick={() => setShowWorkflowModal(true)}
-                              className="flex-1 bg-gradient-to-r from-primary to-blue-600"
-                            >
-                              <Send className="w-4 h-4 mr-2" />
-                              顧客へ通知
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-                  {Object.keys(hallQuotes).length > 1 && (
-                    <Card className="border-2 border-primary">
+              {(() => {
+                const validHallNames = hallNames.filter((name) => name.trim() !== "")
+                const basicInfoComplete = validHallNames.length >= 2 && eventStartDate && eventEndDate
+                
+                if (!basicInfoComplete) {
+                  return (
+                    <Card className="border-2 border-muted">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <FileText className="w-5 h-5" />
+                          見積もり設定
+                        </CardTitle>
+                        <CardDescription>基本情報の入力が完了すると、見積もり設定が表示されます</CardDescription>
+                      </CardHeader>
                       <CardContent className="pt-6">
-                        <div className="border-t pt-4 flex justify-between items-center">
-                          <span className="text-xl font-semibold">全ホール合計金額</span>
-                          <span className="text-3xl font-bold text-primary">
-                            ¥{calculateAllQuotesTotal().toLocaleString()}
-                          </span>
+                        <div className="text-center space-y-2">
+                          <p className="text-muted-foreground">必要な情報: ホール2件以上、イベント開始日、イベント終了日</p>
                         </div>
                       </CardContent>
                     </Card>
-                  )}
-                </div>
+                  )
+                }
+
+                return (
+                  <Card className="border-2 border-primary/20">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <FileText className="w-5 h-5" />
+                        見積もり設定
+                      </CardTitle>
+                      <CardDescription>各項目の金額と各ホールの割合を設定してください</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-3">
+                        <Label>項目ごとの金額（円）</Label>
+                        <p className="text-xs text-muted-foreground">各項目の全体金額を入力してください。各ホールの金額は割合で自動計算されます。</p>
+                        {defaultQuoteItems.map((item) => {
+                          // ポスター印刷は枚数と単価で計算
+                          if (item.id === 2) {
+                            const quantity = parseFloat(posterPrintQuantity) || 0
+                            const unitPrice = parseFloat(posterPrintUnitPrice) || 0
+                            const calculatedAmount = quantity * unitPrice
+                            return (
+                              <div key={item.id} className="space-y-2">
+                                <Label htmlFor={`poster-print-quantity`} className="flex-1">
+                                  {item.name}
+                                </Label>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1">
+                                    <Label htmlFor={`poster-print-quantity`} className="text-xs text-muted-foreground">枚数</Label>
+                                    <Input
+                                      id={`poster-print-quantity`}
+                                      type="number"
+                                      min="0"
+                                      placeholder="0"
+                                      value={posterPrintQuantity}
+                                      onChange={(e) => {
+                                        const value = e.target.value
+                                        // 0から始まる数字を防ぐ（ただし、0単体は許可）
+                                        if (value && value.length > 1 && value.startsWith("0") && value[1] !== ".") {
+                                          return
+                                        }
+                                        setPosterPrintQuantity(value)
+                                        // 金額を自動計算してtotalQuoteItemsに設定
+                                        const qty = parseFloat(value) || 0
+                                        const price = parseFloat(posterPrintUnitPrice) || 0
+                                        const amount = qty * price
+                                        setTotalQuoteItems((prev) => ({
+                                          ...prev,
+                                          [item.id]: amount > 0 ? amount.toString() : "",
+                                        }))
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="flex-1">
+                                    <Label htmlFor={`poster-print-unit-price`} className="text-xs text-muted-foreground">単価（円）</Label>
+                                    <Input
+                                      id={`poster-print-unit-price`}
+                                      type="number"
+                                      step="100"
+                                      min="0"
+                                      placeholder="0"
+                                      value={posterPrintUnitPrice}
+                                      onChange={(e) => {
+                                        const value = e.target.value
+                                        // 0から始まる数字を防ぐ（ただし、0単体は許可）
+                                        if (value && value.length > 1 && value.startsWith("0") && value[1] !== ".") {
+                                          return
+                                        }
+                                        setPosterPrintUnitPrice(value)
+                                        // 金額を自動計算してtotalQuoteItemsに設定
+                                        const qty = parseFloat(posterPrintQuantity) || 0
+                                        const price = parseFloat(value) || 0
+                                        const amount = qty * price
+                                        setTotalQuoteItems((prev) => ({
+                                          ...prev,
+                                          [item.id]: amount > 0 ? amount.toString() : "",
+                                        }))
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="flex-1 pt-6">
+                                    <p className="text-sm font-medium">
+                                      金額: ¥{calculatedAmount.toLocaleString()}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          }
+                          // その他の項目は固定費として金額を直接入力
+                          return (
+                            <div key={item.id} className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Label htmlFor={`total-item-${item.id}`} className="flex-1">
+                                  {item.name}
+                                </Label>
+                                <Input
+                                  id={`total-item-${item.id}`}
+                                  type="number"
+                                  step="1000"
+                                  min="0"
+                                  placeholder="0"
+                                  value={totalQuoteItems[item.id] || ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value
+                                    // 0から始まる数字を防ぐ（ただし、0単体は許可）
+                                    if (value && value.length > 1 && value.startsWith("0") && value[1] !== ".") {
+                                      return
+                                    }
+                                    setTotalQuoteItems((prev) => ({
+                                      ...prev,
+                                      [item.id]: value,
+                                    }))
+                                  }}
+                                  className="w-32"
+                                />
+                                <span className="text-sm text-muted-foreground">円</span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label>各ホールの割合（%）</Label>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const validHallNames = hallNames.filter((name) => name.trim() !== "")
+                              if (validHallNames.length > 0) {
+                                const equalPercentage = Math.floor(100 / validHallNames.length)
+                                const remainder = 100 - (equalPercentage * validHallNames.length)
+                                const newPercentages: { [hallName: string]: number } = {}
+                                validHallNames.forEach((hn, idx) => {
+                                  // 端数分を上から1%ずつ振る
+                                  newPercentages[hn] = equalPercentage + (idx < remainder ? 1 : 0)
+                                })
+                                setHallPercentages(newPercentages)
+                              }
+                            }}
+                          >
+                            均等に分配
+                          </Button>
+                        </div>
+                        {hallNames.filter((name) => name.trim() !== "").map((hallName, index) => {
+                          const percentage = hallPercentages[hallName] || 0
+                          const totalPercentage = Object.values(hallPercentages).reduce((sum, p) => sum + p, 0)
+                          // 各項目の合計金額を計算
+                          const posterPrintQty = parseFloat(posterPrintQuantity) || 0
+                          const posterPrintPrice = parseFloat(posterPrintUnitPrice) || 0
+                          const posterPrintAmount = posterPrintQty * posterPrintPrice
+                          const totalAmount = Object.values(totalQuoteItems).reduce((sum, amount) => {
+                            return sum + (parseFloat(amount) || 0)
+                          }, 0) + posterPrintAmount
+                          const calculatedAmount = totalAmount > 0 ? Math.floor((totalAmount * percentage) / 100) : 0
+                          const remainder = totalAmount > 0 ? totalAmount - Object.keys(hallPercentages).reduce((sum, hn) => {
+                            const p = hallPercentages[hn] || 0
+                            return sum + Math.floor((totalAmount * p) / 100)
+                          }, 0) : 0
+
+                          return (
+                            <div key={index} className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Label htmlFor={`percentage-${index}`} className="flex-1">
+                                  {hallName} の割合
+                                </Label>
+                                <Input
+                                  id={`percentage-${index}`}
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="5"
+                                  placeholder="0"
+                                  value={percentage || ""}
+                                  onChange={(e) => {
+                                    let value = e.target.value
+                                    // 0から始まる数字を防ぐ（ただし、0単体は許可）
+                                    if (value && value.length > 1 && value.startsWith("0") && value[1] !== ".") {
+                                      value = value.replace(/^0+/, "")
+                                    }
+                                    const numValue = parseFloat(value) || 0
+                                    // 5の倍数に丸める
+                                    const roundedValue = Math.round(numValue / 5) * 5
+                                    const newPercentages = { ...hallPercentages }
+                                    newPercentages[hallName] = Math.min(100, Math.max(0, roundedValue))
+                                    setHallPercentages(newPercentages)
+                                  }}
+                                  className="w-24"
+                                />
+                                <span className="text-sm text-muted-foreground">%</span>
+                                {totalAmount > 0 && (
+                                  <span className="text-sm font-medium ml-2">
+                                    = ¥{calculatedAmount.toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                        
+                        {(() => {
+                          // 各項目の合計金額を計算
+                          const posterPrintQty = parseFloat(posterPrintQuantity) || 0
+                          const posterPrintPrice = parseFloat(posterPrintUnitPrice) || 0
+                          const posterPrintAmount = posterPrintQty * posterPrintPrice
+                          const totalAmount = Object.values(totalQuoteItems).reduce((sum, amount) => {
+                            return sum + (parseFloat(amount) || 0)
+                          }, 0) + posterPrintAmount
+                          
+                          if (totalAmount > 0) {
+                            return (
+                              <div className="space-y-2 pt-2 border-t">
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">割合の合計:</span>
+                                  <span className={`font-medium ${Object.values(hallPercentages).reduce((sum, p) => sum + p, 0) === 100 ? "text-green-600" : "text-destructive"}`}>
+                                    {Object.values(hallPercentages).reduce((sum, p) => sum + p, 0).toFixed(1)}%
+                                  </span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">案件全体の見積金額:</span>
+                                  <span className="font-medium">
+                                    ¥{totalAmount.toLocaleString()}
+                                  </span>
+                                </div>
+                                {Object.values(hallPercentages).reduce((sum, p) => sum + p, 0) !== 100 && (
+                                  <Alert variant="destructive">
+                                    <AlertTriangle className="h-4 w-4" />
+                                    <AlertDescription>
+                                      割合の合計が100%になるように設定してください
+                                    </AlertDescription>
+                                  </Alert>
+                                )}
+                                {(() => {
+                                  const totalCalculated = Object.keys(hallPercentages).reduce((sum, hn) => {
+                                    const p = hallPercentages[hn] || 0
+                                    return sum + Math.floor((totalAmount * p) / 100)
+                                  }, 0)
+                                  const remainder = totalAmount - totalCalculated
+                                  return remainder !== 0 ? (
+                                    <Alert>
+                                      <AlertTriangle className="h-4 w-4" />
+                                      <AlertDescription>
+                                        端数が発生しています: ¥{Math.abs(remainder).toLocaleString()}
+                                        {remainder > 0 ? "（未配分）" : "（超過）"}
+                                      </AlertDescription>
+                                    </Alert>
+                                  ) : null
+                                })()}
+                              </div>
+                            )
+                          }
+                          return null
+                        })()}
+                      </div>
+
+                      {!quoteGenerated && (
+                        <Button
+                          onClick={handleGenerateQuote}
+                          className="w-full bg-gradient-to-r from-primary to-blue-600 text-primary-foreground"
+                        >
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          見積もりを作成
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                )
+              })()}
+
+              {quoteGenerated && (
+                <Card className="border-2 border-primary/20">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="w-5 h-5" />
+                      見積もり
+                    </CardTitle>
+                    <CardDescription>各ホールの見積もり詳細</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {hallNames.filter((name) => name.trim() !== "").map((hallName, index) => {
+                      const percentage = hallPercentages[hallName] || 0
+                      // 各項目の合計金額を計算
+                      const posterPrintQty = parseFloat(posterPrintQuantity) || 0
+                      const posterPrintPrice = parseFloat(posterPrintUnitPrice) || 0
+                      const posterPrintAmount = posterPrintQty * posterPrintPrice
+                      const totalAmount = Object.values(totalQuoteItems).reduce((sum, amount) => {
+                        return sum + (parseFloat(amount) || 0)
+                      }, 0) + posterPrintAmount
+                      const calculatedAmount = totalAmount > 0 ? Math.floor((totalAmount * percentage) / 100) : 0
+                      const quoteItems = hallQuotes[hallName] || []
+                      
+                      return (
+                        <Card key={index} className="border border-border">
+                          <CardHeader>
+                            <CardTitle className="text-lg">{hallName} の見積もり</CardTitle>
+                            <CardDescription>
+                              割合: {percentage}% | 見積金額: ¥{calculatedAmount.toLocaleString()}
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="space-y-3">
+                              {quoteItems.map((item) => (
+                                <div key={item.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                                  <div>
+                                    <p className="font-medium">{item.name}</p>
+                                    {item.id === 2 ? (
+                                      <p className="text-sm text-muted-foreground">
+                                        {item.quantity}枚 × ¥{item.unitPrice.toLocaleString()}
+                                      </p>
+                                    ) : (
+                                      <p className="text-sm text-muted-foreground">
+                                        割合（{percentage}%）で計算された金額
+                                      </p>
+                                    )}
+                                  </div>
+                                  <p className="font-semibold">
+                                    {item.id === 2 ? `¥${(item.quantity * item.unitPrice).toLocaleString()}` : `¥${item.unitPrice.toLocaleString()}`}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="border-t pt-4 space-y-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-lg font-semibold">項目合計金額</span>
+                                <span className="text-xl font-bold">
+                                  ¥{calculateQuoteTotal(hallName).toLocaleString()}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-lg font-semibold text-primary">割合による見積金額</span>
+                                <span className="text-2xl font-bold text-primary">
+                                  ¥{calculatedAmount.toLocaleString()}
+                                </span>
+                              </div>
+                              {calculateQuoteTotal(hallName) !== calculatedAmount && (
+                                <Alert>
+                                  <AlertTriangle className="h-4 w-4" />
+                                  <AlertDescription>
+                                    項目合計金額（¥{calculateQuoteTotal(hallName).toLocaleString()}）と割合による見積金額（¥{calculatedAmount.toLocaleString()}）が一致していません。
+                                  </AlertDescription>
+                                </Alert>
+                              )}
+                            </div>
+
+                            <div className="flex gap-3">
+                              <Button onClick={() => setShowPdfModal(true)} variant="outline" className="flex-1">
+                                <FileCheck className="w-4 h-4 mr-2" />
+                                PDF出力
+                              </Button>
+                              <Button
+                                onClick={() => setShowWorkflowModal(true)}
+                                className="flex-1 bg-gradient-to-r from-primary to-blue-600"
+                              >
+                                <Send className="w-4 h-4 mr-2" />
+                                顧客へ通知
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
+                    {Object.keys(hallQuotes).length > 1 && (
+                      <div className="border-t pt-4 mt-6">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xl font-semibold">全ホール合計金額（割合ベース）</span>
+                          <span className="text-3xl font-bold text-primary">
+                            {(() => {
+                              const posterPrintQty = parseFloat(posterPrintQuantity) || 0
+                              const posterPrintPrice = parseFloat(posterPrintUnitPrice) || 0
+                              const posterPrintAmount = posterPrintQty * posterPrintPrice
+                              const totalAmount = Object.values(totalQuoteItems).reduce((sum, amount) => {
+                                return sum + (parseFloat(amount) || 0)
+                              }, 0) + posterPrintAmount
+                              return `¥${Object.keys(hallPercentages).reduce((sum, hn) => {
+                                const p = hallPercentages[hn] || 0
+                                return sum + Math.floor((totalAmount * p) / 100)
+                              }, 0).toLocaleString()}`
+                            })()}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               )}
 
               {quoteGenerated && (
@@ -1469,7 +1906,7 @@ export default function JASEventManager() {
                   <Alert>
                     <MapPin className="h-4 w-4" />
                     <AlertDescription>
-                      対象エリア: {area || "未設定"} / ターゲット: {target || "未設定"}
+                      対象エリア: {area || "未設定"}
                     </AlertDescription>
                   </Alert>
 
