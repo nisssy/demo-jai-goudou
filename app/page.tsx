@@ -87,7 +87,7 @@ type Project = {
   salesPersonId: string
   posterCount?: string
   target?: string
-  quoteItems?: QuoteItem[]
+  hallQuotes?: HallQuote[]
 }
 
 type QuoteItem = {
@@ -96,6 +96,11 @@ type QuoteItem = {
   quantity: number
   unitPrice: number
   included: boolean
+}
+
+type HallQuote = {
+  hallName: string
+  quoteItems: QuoteItem[]
 }
 
 export default function JASEventManager() {
@@ -152,11 +157,25 @@ export default function JASEventManager() {
       salesPersonId: "E002",
       posterCount: "100",
       target: "女性40代",
-      quoteItems: [
-        { id: 1, name: "ポスターデザイン", quantity: 1, unitPrice: 80000, included: true },
-        { id: 2, name: "ポスター印刷", quantity: 100, unitPrice: 1800, included: true },
-        { id: 3, name: "DM発送代行", quantity: 2000, unitPrice: 150, included: true },
-        { id: 4, name: "抽選システム利用料", quantity: 1, unitPrice: 30000, included: true },
+      hallQuotes: [
+        {
+          hallName: "メガホール大阪",
+          quoteItems: [
+            { id: 1, name: "ポスターデザイン", quantity: 1, unitPrice: 80000, included: true },
+            { id: 2, name: "ポスター印刷", quantity: 100, unitPrice: 1800, included: true },
+            { id: 3, name: "DM発送代行", quantity: 2000, unitPrice: 150, included: true },
+            { id: 4, name: "抽選システム利用料", quantity: 1, unitPrice: 30000, included: true },
+          ],
+        },
+        {
+          hallName: "メガホール東京",
+          quoteItems: [
+            { id: 1, name: "ポスターデザイン", quantity: 1, unitPrice: 80000, included: true },
+            { id: 2, name: "ポスター印刷", quantity: 100, unitPrice: 1800, included: true },
+            { id: 3, name: "DM発送代行", quantity: 2000, unitPrice: 150, included: true },
+            { id: 4, name: "抽選システム利用料", quantity: 1, unitPrice: 30000, included: true },
+          ],
+        },
       ],
     },
     {
@@ -172,11 +191,25 @@ export default function JASEventManager() {
       salesPersonId: "E003",
       posterCount: "40",
       target: "男性20代",
-      quoteItems: [
-        { id: 1, name: "ポスターデザイン", quantity: 1, unitPrice: 50000, included: true },
-        { id: 2, name: "ポスター印刷", quantity: 40, unitPrice: 2200, included: true },
-        { id: 3, name: "DM発送代行", quantity: 800, unitPrice: 150, included: true },
-        { id: 4, name: "抽選システム利用料", quantity: 1, unitPrice: 25000, included: true },
+      hallQuotes: [
+        {
+          hallName: "サンライズホール名古屋",
+          quoteItems: [
+            { id: 1, name: "ポスターデザイン", quantity: 1, unitPrice: 50000, included: true },
+            { id: 2, name: "ポスター印刷", quantity: 40, unitPrice: 2200, included: true },
+            { id: 3, name: "DM発送代行", quantity: 800, unitPrice: 150, included: true },
+            { id: 4, name: "抽選システム利用料", quantity: 1, unitPrice: 25000, included: true },
+          ],
+        },
+        {
+          hallName: "サンライズホール福岡",
+          quoteItems: [
+            { id: 1, name: "ポスターデザイン", quantity: 1, unitPrice: 50000, included: true },
+            { id: 2, name: "ポスター印刷", quantity: 40, unitPrice: 2200, included: true },
+            { id: 3, name: "DM発送代行", quantity: 800, unitPrice: 150, included: true },
+            { id: 4, name: "抽選システム利用料", quantity: 1, unitPrice: 25000, included: true },
+          ],
+        },
       ],
     },
     {
@@ -192,11 +225,25 @@ export default function JASEventManager() {
       salesPersonId: "E004",
       posterCount: "60",
       target: "ファミリー層",
-      quoteItems: [
-        { id: 1, name: "ポスターデザイン", quantity: 1, unitPrice: 60000, included: true },
-        { id: 2, name: "ポスター印刷", quantity: 60, unitPrice: 2000, included: true },
-        { id: 3, name: "DM発送代行", quantity: 1500, unitPrice: 150, included: true },
-        { id: 4, name: "抽選システム利用料", quantity: 1, unitPrice: 30000, included: true },
+      hallQuotes: [
+        {
+          hallName: "スカイホール福岡",
+          quoteItems: [
+            { id: 1, name: "ポスターデザイン", quantity: 1, unitPrice: 60000, included: true },
+            { id: 2, name: "ポスター印刷", quantity: 60, unitPrice: 2000, included: true },
+            { id: 3, name: "DM発送代行", quantity: 1500, unitPrice: 150, included: true },
+            { id: 4, name: "抽選システム利用料", quantity: 1, unitPrice: 30000, included: true },
+          ],
+        },
+        {
+          hallName: "スカイホール広島",
+          quoteItems: [
+            { id: 1, name: "ポスターデザイン", quantity: 1, unitPrice: 60000, included: true },
+            { id: 2, name: "ポスター印刷", quantity: 60, unitPrice: 2000, included: true },
+            { id: 3, name: "DM発送代行", quantity: 1500, unitPrice: 150, included: true },
+            { id: 4, name: "抽選システム利用料", quantity: 1, unitPrice: 30000, included: true },
+          ],
+        },
       ],
     },
   ])
@@ -221,12 +268,14 @@ export default function JASEventManager() {
   const [projectStatus, setProjectStatus] = useState<"draft" | "confirmed" | "in-progress" | "completed">("draft")
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showWorkflowModal, setShowWorkflowModal] = useState(false)
-  const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([
+  const [hallQuotes, setHallQuotes] = useState<{ [hallName: string]: QuoteItem[] }>({})
+  
+  const defaultQuoteItems: QuoteItem[] = [
     { id: 1, name: "ポスターデザイン", quantity: 1, unitPrice: 50000, included: true },
     { id: 2, name: "ポスター印刷", quantity: 50, unitPrice: 2000, included: true },
     { id: 3, name: "DM発送代行", quantity: 1000, unitPrice: 150, included: true },
     { id: 4, name: "抽選システム利用料", quantity: 1, unitPrice: 30000, included: true },
-  ])
+  ]
 
   // Screen 2: Production State
   const [orderStatus, setOrderStatus] = useState<"drafting" | "proofing" | "finalized">("drafting")
@@ -361,11 +410,16 @@ export default function JASEventManager() {
 
     if (project.status !== "draft") {
       setQuoteGenerated(true)
-      if (project.quoteItems) {
-        setQuoteItems(project.quoteItems)
+      if (project.hallQuotes) {
+        const quotesMap: { [hallName: string]: QuoteItem[] } = {}
+        project.hallQuotes.forEach((hallQuote) => {
+          quotesMap[hallQuote.hallName] = hallQuote.quoteItems
+        })
+        setHallQuotes(quotesMap)
       }
     } else {
       setQuoteGenerated(false)
+      setHallQuotes({})
     }
 
     setCurrentScreen("proposal")
@@ -388,12 +442,7 @@ export default function JASEventManager() {
     setTarget("")
     setQuoteGenerated(false)
     setProjectStatus("draft")
-    setQuoteItems([
-      { id: 1, name: "ポスターデザイン", quantity: 1, unitPrice: 50000, included: true },
-      { id: 2, name: "ポスター印刷", quantity: 50, unitPrice: 2000, included: true },
-      { id: 3, name: "DM発送代行", quantity: 1000, unitPrice: 150, included: true },
-      { id: 4, name: "抽選システム利用料", quantity: 1, unitPrice: 30000, included: true },
-    ])
+    setHallQuotes({})
     setCurrentScreen("proposal")
   }
 
@@ -419,7 +468,6 @@ export default function JASEventManager() {
 
   const handleGenerateQuote = () => {
     const validHallNames = hallNames.filter((name) => name.trim() !== "")
-    const validHallCompanyIds = hallCompanyIds.filter((id, index) => hallNames[index] && id)
     if (validHallNames.length < 2 || !eventStartDate || !eventEndDate) {
       toast({
         title: "⚠️ 入力エラー",
@@ -429,18 +477,35 @@ export default function JASEventManager() {
       return
     }
     // 各ホールに法人が紐づいているかチェック
-    if (validHallNames.length !== validHallCompanyIds.length) {
+    const missingCompanyHalls: string[] = []
+    validHallNames.forEach((hallName) => {
+      const index = hallNames.indexOf(hallName)
+      if (!hallCompanyIds[index] || hallCompanyIds[index].trim() === "") {
+        missingCompanyHalls.push(hallName)
+      }
+    })
+    
+    if (missingCompanyHalls.length > 0) {
       toast({
         title: "⚠️ 入力エラー",
-        description: "各ホールに法人を選択してください",
+        description: `以下のホールに法人を選択してください: ${missingCompanyHalls.join(", ")}`,
         variant: "destructive",
       })
       return
     }
+    // 各ホールごとに見積もりを生成
+    const newHallQuotes: { [hallName: string]: QuoteItem[] } = {}
+    validHallNames.forEach((hallName) => {
+      newHallQuotes[hallName] = JSON.parse(JSON.stringify(defaultQuoteItems))
+    })
+    setHallQuotes(newHallQuotes)
     setQuoteGenerated(true)
 
     if (!selectedProject) {
-      const validHallNames = hallNames.filter((name) => name.trim() !== "")
+      const hallQuotesArray: HallQuote[] = validHallNames.map((hallName) => ({
+        hallName,
+        quoteItems: newHallQuotes[hallName],
+      }))
       const newProject: Project = {
         id: `P${String(projects.length + 1).padStart(3, "0")}`,
         companyName,
@@ -454,16 +519,19 @@ export default function JASEventManager() {
         salesPersonId,
         posterCount,
         target,
-        quoteItems: [...quoteItems],
+        hallQuotes: hallQuotesArray,
       }
       setProjects([...projects, newProject])
       setSelectedProject(newProject)
     } else {
       // Update existing selected project with new quote data
-      const validHallNames = hallNames.filter((name) => name.trim() !== "")
+      const hallQuotesArray: HallQuote[] = validHallNames.map((hallName) => ({
+        hallName,
+        quoteItems: newHallQuotes[hallName],
+      }))
       const updatedProjects = projects.map((p) =>
         p.id === selectedProject.id
-          ? { ...p, companyName, hallNames: validHallNames, eventStartDate, eventEndDate, area, budget, salesPersonId, posterCount, target, quoteItems: [...quoteItems] }
+          ? { ...p, companyName, hallNames: validHallNames, eventStartDate, eventEndDate, area, budget, salesPersonId, posterCount, target, hallQuotes: hallQuotesArray }
           : p,
       )
       setProjects(updatedProjects)
@@ -478,13 +546,13 @@ export default function JASEventManager() {
         salesPersonId,
         posterCount,
         target,
-        quoteItems: [...quoteItems],
+        hallQuotes: hallQuotesArray,
       })
     }
 
     toast({
       title: "✅ 見積もり作成完了",
-      description: "見積内容が生成されました",
+      description: "各ホールごとに見積内容が生成されました",
     })
   }
 
@@ -502,12 +570,25 @@ export default function JASEventManager() {
     })
   }
 
-  const toggleQuoteItem = (id: number) => {
-    setQuoteItems((items) => items.map((item) => (item.id === id ? { ...item, included: !item.included } : item)))
+  const toggleQuoteItem = (hallName: string, id: number) => {
+    setHallQuotes((quotes) => {
+      const newQuotes = { ...quotes }
+      if (newQuotes[hallName]) {
+        newQuotes[hallName] = newQuotes[hallName].map((item) =>
+          item.id === id ? { ...item, included: !item.included } : item
+        )
+      }
+      return newQuotes
+    })
   }
 
-  const calculateQuoteTotal = () => {
+  const calculateQuoteTotal = (hallName: string) => {
+    const quoteItems = hallQuotes[hallName] || []
     return quoteItems.filter((item) => item.included).reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
+  }
+
+  const calculateAllQuotesTotal = () => {
+    return Object.keys(hallQuotes).reduce((total, hallName) => total + calculateQuoteTotal(hallName), 0)
   }
 
   const getStatusLabel = (status: Project["status"]) => {
@@ -1262,52 +1343,76 @@ export default function JASEventManager() {
               </Card>
 
               {quoteGenerated && (
-                <Card className="border-2 border-primary/20">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <FileText className="w-5 h-5" />
-                      見積もり
-                    </CardTitle>
-                    <CardDescription>見積内容を確認し、含める項目を選択してください</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-3">
-                      {quoteItems.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <Switch checked={item.included} onCheckedChange={() => toggleQuoteItem(item.id)} />
-                            <div>
-                              <p className="font-medium">{item.name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                単価: ¥{item.unitPrice.toLocaleString()} × {item.quantity}
-                              </p>
-                            </div>
+                <div className="space-y-6">
+                  {hallNames.filter((name) => name.trim() !== "").map((hallName, index) => {
+                    const quoteItems = hallQuotes[hallName] || []
+                    return (
+                      <Card key={index} className="border-2 border-primary/20">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <FileText className="w-5 h-5" />
+                            {hallName} の見積もり
+                          </CardTitle>
+                          <CardDescription>見積内容を確認し、含める項目を選択してください</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="space-y-3">
+                            {quoteItems.map((item) => (
+                              <div key={item.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                  <Switch
+                                    checked={item.included}
+                                    onCheckedChange={() => toggleQuoteItem(hallName, item.id)}
+                                  />
+                                  <div>
+                                    <p className="font-medium">{item.name}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      単価: ¥{item.unitPrice.toLocaleString()} × {item.quantity}
+                                    </p>
+                                  </div>
+                                </div>
+                                <p className="font-semibold">¥{(item.quantity * item.unitPrice).toLocaleString()}</p>
+                              </div>
+                            ))}
                           </div>
-                          <p className="font-semibold">¥{(item.quantity * item.unitPrice).toLocaleString()}</p>
+
+                          <div className="border-t pt-4 flex justify-between items-center">
+                            <span className="text-lg font-semibold">合計金額</span>
+                            <span className="text-2xl font-bold text-primary">
+                              ¥{calculateQuoteTotal(hallName).toLocaleString()}
+                            </span>
+                          </div>
+
+                          <div className="flex gap-3">
+                            <Button onClick={() => setShowPdfModal(true)} variant="outline" className="flex-1">
+                              <FileCheck className="w-4 h-4 mr-2" />
+                              PDF出力
+                            </Button>
+                            <Button
+                              onClick={() => setShowWorkflowModal(true)}
+                              className="flex-1 bg-gradient-to-r from-primary to-blue-600"
+                            >
+                              <Send className="w-4 h-4 mr-2" />
+                              顧客へ通知
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                  {Object.keys(hallQuotes).length > 1 && (
+                    <Card className="border-2 border-primary">
+                      <CardContent className="pt-6">
+                        <div className="border-t pt-4 flex justify-between items-center">
+                          <span className="text-xl font-semibold">全ホール合計金額</span>
+                          <span className="text-3xl font-bold text-primary">
+                            ¥{calculateAllQuotesTotal().toLocaleString()}
+                          </span>
                         </div>
-                      ))}
-                    </div>
-
-                    <div className="border-t pt-4 flex justify-between items-center">
-                      <span className="text-lg font-semibold">合計金額</span>
-                      <span className="text-2xl font-bold text-primary">¥{calculateQuoteTotal().toLocaleString()}</span>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <Button onClick={() => setShowPdfModal(true)} variant="outline" className="flex-1">
-                        <FileCheck className="w-4 h-4 mr-2" />
-                        PDF出力
-                      </Button>
-                      <Button
-                        onClick={() => setShowWorkflowModal(true)}
-                        className="flex-1 bg-gradient-to-r from-primary to-blue-600"
-                      >
-                        <Send className="w-4 h-4 mr-2" />
-                        顧客へ通知
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
               )}
 
               {quoteGenerated && (
