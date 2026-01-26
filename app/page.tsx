@@ -46,11 +46,13 @@ import {
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ProjectStepper } from "@/components/project-stepper"
 
 type Screen = "list" | "proposal" | "production" | "lottery" | "accounting"
 type Role = "sales" | "admin"
@@ -263,6 +265,11 @@ export default function JASEventManager() {
   const [eventStartDate, setEventStartDate] = useState("")
   const [eventEndDate, setEventEndDate] = useState("")
   const [area, setArea] = useState("")
+  const [eventType, setEventType] = useState("")
+  const [prizeInfo, setPrizeInfo] = useState<{ rank: string; name: string; quantity: string }[]>([
+    { rank: "A賞", name: "", quantity: "" }
+  ])
+  const [dmOrderCount, setDmOrderCount] = useState("")
   const [syncLoading, setSyncLoading] = useState(false)
 
   const [quoteGenerated, setQuoteGenerated] = useState(false)
@@ -329,9 +336,22 @@ export default function JASEventManager() {
   const [showFixRequest, setShowFixRequest] = useState(false)
 
   const [winnerListValidated, setWinnerListValidated] = useState(false)
+  const [showWinnerListError, setShowWinnerListError] = useState(false)
   const [prizeOrderGenerated, setPrizeOrderGenerated] = useState(false)
   const [prizeOrderSent, setPrizeOrderSent] = useState(false)
+  const [prizeDeliveryDate, setPrizeDeliveryDate] = useState("")
+  // const [selectedPrizeVendor, setSelectedPrizeVendor] = useState("vendorC") // Removed in favor of per-prize selection
+  const [prizeVendorSelections, setPrizeVendorSelections] = useState<{ [key: string]: { prizeVendor: string, deliveryVendor: string } }>({})
   const [deliveryAlerts, setDeliveryAlerts] = useState<Array<{ project: string; days: number }>>([])
+  const [deliveryFileUploaded, setDeliveryFileUploaded] = useState(false)
+  const [showDeliveryData, setShowDeliveryData] = useState(false)
+
+  // Demo delivery data
+  const demoDeliveryData = [
+    { id: 1, name: "山田太郎", address: "東京都渋谷区...", status: "配送中", tracking: "1234-5678-9012" },
+    { id: 2, name: "佐藤花子", address: "神奈川県横浜市...", status: "配送完了", tracking: "9876-5432-1098" },
+    { id: 3, name: "鈴木一郎", address: "大阪府大阪市...", status: "配送中", tracking: "4567-8901-2345" },
+  ]
   const [quoCardLetterChecked, setQuoCardLetterChecked] = useState(false)
   const [showLetterCheckModal, setShowLetterCheckModal] = useState(false)
   const [letterCheckErrors, setLetterCheckErrors] = useState<string[]>([])
@@ -980,6 +1000,12 @@ export default function JASEventManager() {
     })
   }
 
+  const steps = [
+    { id: "proposal", label: "案件・見積・設定" },
+    { id: "production", label: "制作進行・AI校正" },
+    { id: "lottery", label: "抽選・景品・配送" },
+  ]
+
   // const handleFixLetterAndRecheck = () => {
   //   setLetterCheckErrors([])
   //   setTimeout(() => {
@@ -994,67 +1020,29 @@ export default function JASEventManager() {
 
   return (
     <div className="flex h-screen bg-background text-foreground">
-      {/* Left Sidebar */}
-      <aside className="w-64 border-r border-border bg-card">
-        <div className="p-6">
-          <h1 className="text-xl font-bold text-foreground">JAS Event Manager</h1>
-          <p className="text-sm text-muted-foreground mt-1">抽選イベント管理</p>
-        </div>
+      {/* Left Sidebar - Only show in list view */}
+      {currentScreen === "list" && (
+        <aside className="w-64 border-r border-border bg-card">
+          <div className="p-6">
+            <h1 className="text-xl font-bold text-foreground">JAS Event Manager</h1>
+            <p className="text-sm text-muted-foreground mt-1">抽選イベント管理</p>
+          </div>
 
-        <nav className="px-3 space-y-1">
-          <button
-            onClick={() => setCurrentScreen("list")}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-              currentScreen === "list"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            }`}
-          >
-            <List className="w-5 h-5" />
-            <span className="font-medium">案件一覧</span>
-          </button>
-
-          <button
-            onClick={handleNewProject}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-              currentScreen === "proposal"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            }`}
-          >
-            <FileText className="w-5 h-5" />
-            <span className="font-medium">案件・見積・設定</span>
-          </button>
-
-          {currentScreen !== "list" && (
-            <>
-              <button
-                onClick={() => setCurrentScreen("production")}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                  currentScreen === "production"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                }`}
-              >
-                <ImageIcon className="w-5 h-5" />
-                <span className="font-medium">制作進行・AI校正</span>
-              </button>
-
-              <button
-                onClick={() => setCurrentScreen("lottery")}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                  currentScreen === "lottery"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                }`}
-              >
-                <Package className="w-5 h-5" />
-                <span className="font-medium">抽選・景品・配送</span>
-              </button>
-            </>
-          )}
-        </nav>
-      </aside>
+          <nav className="px-3 space-y-1">
+            <button
+              onClick={() => setCurrentScreen("list")}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                currentScreen === "list"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              }`}
+            >
+              <List className="w-5 h-5" />
+              <span className="font-medium">案件一覧</span>
+            </button>
+          </nav>
+        </aside>
+      )}
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
@@ -1096,6 +1084,15 @@ export default function JASEventManager() {
             </div>
           </div>
         </header>
+
+        {/* Stepper */}
+        {currentScreen !== "list" && (
+          <ProjectStepper
+            steps={steps}
+            currentStep={currentScreen}
+            onStepClick={(id) => setCurrentScreen(id as Screen)}
+          />
+        )}
 
         {/* Content Area */}
         <main className="flex-1 overflow-auto p-6">
@@ -1448,12 +1445,75 @@ export default function JASEventManager() {
                       </PopoverContent>
                     </Popover>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="event-type">イベント種類</Label>
+                    <Input 
+                      id="event-type" 
+                      placeholder="例: 年末大抽選会" 
+                      value={eventType}
+                      onChange={(e) => setEventType(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-4 pt-4 border-t">
+                    <div className="flex items-center justify-between">
+                      <Label>景品情報</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPrizeInfo([...prizeInfo, { rank: "", name: "", quantity: "" }])}
+                      >
+                        + 景品を追加
+                      </Button>
+                    </div>
+                    
+                    {prizeInfo.map((prize, index) => (
+                      <div key={index} className="grid grid-cols-3 gap-2">
+                        <Input
+                          placeholder="賞 (例: A賞)"
+                          value={prize.rank}
+                          onChange={(e) => {
+                            const newInfo = [...prizeInfo]
+                            newInfo[index].rank = e.target.value
+                            setPrizeInfo(newInfo)
+                          }}
+                        />
+                        <Input
+                          placeholder="景品名"
+                          value={prize.name}
+                          onChange={(e) => {
+                            const newInfo = [...prizeInfo]
+                            newInfo[index].name = e.target.value
+                            setPrizeInfo(newInfo)
+                          }}
+                        />
+                         <Input
+                          type="number"
+                          placeholder="数"
+                          value={prize.quantity}
+                          onChange={(e) => {
+                            const newInfo = [...prizeInfo]
+                            newInfo[index].quantity = e.target.value
+                            setPrizeInfo(newInfo)
+                          }}
+                        />
+                      </div>
+                    ))}
+                    {(prizeInfo.length === 0 || !prizeInfo[0].name) && (
+                       <p className="text-sm text-destructive font-medium flex items-center gap-1">
+                         <AlertCircle className="w-4 h-4" />
+                         景品の情報がないと見積もりが出せません
+                       </p>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
 
               {(() => {
                 const validHallNames = hallNames.filter((name) => name.trim() !== "")
-                const basicInfoComplete = validHallNames.length >= 2 && eventStartDate && eventEndDate
+                const basicInfoComplete = validHallNames.length >= 2 && eventStartDate && eventEndDate && prizeInfo.length > 0 && prizeInfo[0].name !== ""
                 
                 if (!basicInfoComplete) {
                   return (
@@ -1467,7 +1527,7 @@ export default function JASEventManager() {
                       </CardHeader>
                       <CardContent className="pt-6">
                         <div className="text-center space-y-2">
-                          <p className="text-muted-foreground">必要な情報: ホール2件以上、イベント開始日、イベント終了日</p>
+                          <p className="text-muted-foreground">必要な情報: ホール2件以上、イベント開始日、イベント終了日、景品情報</p>
                         </div>
                       </CardContent>
                     </Card>
@@ -1561,6 +1621,41 @@ export default function JASEventManager() {
                               </div>
                             )
                           }
+                          if (item.id === 3) {
+                            return (
+                              <div key={item.id} className="space-y-2">
+                                <Label>{item.name}</Label>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-1/3">
+                                    <Label className="text-xs text-muted-foreground">発注枚数</Label>
+                                    <Input
+                                      type="number"
+                                      value={dmOrderCount}
+                                      onChange={(e) => setDmOrderCount(e.target.value)}
+                                      placeholder="枚数"
+                                    />
+                                  </div>
+                                  <div className="flex-1">
+                                    <Label className="text-xs text-muted-foreground">金額</Label>
+                                    <Input
+                                      id={`total-item-${item.id}`}
+                                      type="number"
+                                      placeholder="0"
+                                      value={totalQuoteItems[item.id] || ""}
+                                      onChange={(e) => {
+                                        const value = e.target.value
+                                        setTotalQuoteItems((prev) => ({
+                                          ...prev,
+                                          [item.id]: value,
+                                        }))
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          }
+
                           // その他の項目は固定費として金額を直接入力
                           return (
                             <div key={item.id} className="space-y-2">
@@ -2280,18 +2375,107 @@ export default function JASEventManager() {
                   <CardDescription>Excelファイル（.xlsx）をアップロードしてください</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <button
-                    onClick={handleValidateWinnerList}
-                    className="w-full border-2 border-dashed border-muted-foreground/30 rounded-lg p-12 hover:border-primary hover:bg-accent/50 transition-all"
-                  >
-                    <div className="flex flex-col items-center gap-3">
-                      <Upload className="w-12 h-12 text-muted-foreground" />
-                      <p className="font-medium">
-                        {fileUploaded ? "✅ winners_list.xlsx" : "クリックしてアップロード（デモモード）"}
-                      </p>
-                      <p className="text-sm text-muted-foreground">.xlsx形式のファイルに対応</p>
+                  {!fileUploaded ? (
+                    <div className="space-y-4">
+                      <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-8 text-center bg-muted/20">
+                        <p className="text-muted-foreground mb-4">ホールがPSPにアップロードした当選者リストを同期します</p>
+                        <div className="flex justify-center gap-4">
+                          <Button 
+                            onClick={() => {
+                              setFileUploaded(true)
+                              setShowWinnerListError(false)
+                              setWinnerListValidated(true)
+                              toast({ title: "同期完了", description: "PSPから正常なデータを取得しました" })
+                            }}
+                            className="bg-primary"
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            正常データを同期（デモ）
+                          </Button>
+                          <Button 
+                            onClick={() => {
+                              setFileUploaded(true)
+                              setShowWinnerListError(true)
+                              setWinnerListValidated(false)
+                              toast({ title: "同期完了", description: "PSPからデータを取得しましたが、不整合があります", variant: "destructive" })
+                            }}
+                            variant="destructive"
+                          >
+                            <AlertTriangle className="w-4 h-4 mr-2" />
+                            異常データを同期（デモ）
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                  </button>
+                  ) : (
+                    <div className="w-full text-left space-y-4">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium flex items-center gap-2">
+                          <FileCheck className="w-5 h-5 text-green-600" />
+                          winners_list_20241225.xlsx (PSP連携済)
+                        </p>
+                        <Button variant="outline" size="sm" onClick={() => {
+                           setFileUploaded(false)
+                           setWinnerListValidated(false)
+                           setShowWinnerListError(false)
+                        }}>
+                          リセット
+                        </Button>
+                      </div>
+                      
+                      <div className="border rounded-md">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>名前</TableHead>
+                              <TableHead>住所</TableHead>
+                              <TableHead>電話番号</TableHead>
+                              <TableHead>景品</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {demoWinnerData.map((winner) => (
+                              <TableRow key={winner.id}>
+                                <TableCell>{winner.name}</TableCell>
+                                <TableCell>{winner.address}</TableCell>
+                                <TableCell>{winner.phone}</TableCell>
+                                <TableCell>{winner.prize}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+
+                      {showWinnerListError && (
+                         <Alert variant="destructive">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTitle>エラー: 当選者数と見積もり情報の不一致</AlertTitle>
+                            <AlertDescription>
+                               <div className="mt-2 space-y-2">
+                                 <p>当選者リスト: {demoWinnerData.length}名</p>
+                                 <p>見積もり(景品数): {prizeInfo.reduce((sum, p) => sum + (parseInt(p.quantity) || 0), 0)}名</p>
+                                 <div className="pt-2">
+                                   <Button 
+                                     variant="destructive" 
+                                     size="sm" 
+                                     onClick={() => {
+                                       toast({ 
+                                         title: "再アップロード依頼送信完了", 
+                                         description: "ホール担当者に再アップロード依頼メールを送信しました" 
+                                       })
+                                       setShowWinnerListError(false) // Reset error state for demo flow or keep it? Let's keep it to show "requested" state if complex, but simple toast is fine.
+                                     }}
+                                   >
+                                      <Mail className="w-4 h-4 mr-2" />
+                                      ホールに再アップロード依頼
+                                   </Button>
+                                 </div>
+                               </div>
+                            </AlertDescription>
+                         </Alert>
+                      )}
+                    </div>
+                  )}
 
                   {winnerListValidated && (
                     <Alert className="border-primary bg-primary/10">
@@ -2306,108 +2490,162 @@ export default function JASEventManager() {
                 </CardContent>
               </Card>
 
-              {winnerListValidated && (
-                <Card className="border-2 border-primary/20">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Sparkles className="w-5 h-5 text-primary" />
-                      景品発注データ生成
-                    </CardTitle>
-                    <CardDescription>当選者リストから景品用発注フォーマットへ自動変換</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {!prizeOrderGenerated ? (
-                      <Button
-                        onClick={handleGeneratePrizeOrder}
-                        className="w-full bg-gradient-to-r from-primary to-blue-600"
-                      >
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        発注データ自動生成
-                      </Button>
-                    ) : (
-                      <>
-                        <Alert className="border-primary bg-primary/10">
-                          <CheckCircle2 className="h-4 w-4 text-primary" />
-                          <AlertDescription>
-                            <strong>✅ 発注データ生成完了</strong>
-                            <br />
-                            <span className="text-sm">prize_order_20241225.xlsx が生成されました</span>
-                          </AlertDescription>
-                        </Alert>
+              {/* Always visible cards */}
+              <Card className="border-2 border-primary/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                    景品発注データ生成
+                  </CardTitle>
+                  <CardDescription>当選者リストから景品用発注フォーマットへ自動変換</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {!prizeOrderGenerated ? (
+                    <Button
+                      onClick={handleGeneratePrizeOrder}
+                      className="w-full bg-gradient-to-r from-primary to-blue-600"
+                      disabled={!winnerListValidated}
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      発注データ自動生成
+                    </Button>
+                  ) : (
+                    <>
+                      <Alert className="border-primary bg-primary/10">
+                        <CheckCircle2 className="h-4 w-4 text-primary" />
+                        <AlertDescription>
+                          <strong>✅ 発注データ生成完了</strong>
+                          <br />
+                          <span className="text-sm">prize_order_20241225.xlsx が生成されました</span>
+                        </AlertDescription>
+                      </Alert>
 
-                        <div className="rounded-lg border border-border p-4 space-y-2">
-                          <h4 className="font-semibold text-sm">発注データプレビュー</h4>
-                          <div className="text-sm text-muted-foreground space-y-1">
-                            <p>• 当選者数: 50名</p>
-                            <p>• 景品種類: クオカード 10,000円</p>
-                            <p>• 配送先: 個別配送（50件）</p>
-                          </div>
+                      <div className="rounded-lg border border-border p-4 space-y-2">
+                        <h4 className="font-semibold text-sm">発注データプレビュー</h4>
+                        <div className="text-sm text-muted-foreground space-y-1">
+                          <p>• 当選者数: 50名</p>
+                          <p>• 景品種類: クオカード 10,000円</p>
+                          <p>• 配送先: 個別配送（50件）</p>
                         </div>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {prizeOrderGenerated && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Mail className="w-5 h-5" />
-                      景品発注処理
-                    </CardTitle>
-                    <CardDescription>景品発注書を生成し業者へメール送信</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {!prizeOrderSent ? (
-                      <div className="space-y-3">
-                        <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                          <p className="text-sm font-medium">送信先業者</p>
-                          <p className="text-sm text-muted-foreground">景品調達先C (quo-card@vendor.jp)</p>
-                        </div>
-                        <Button onClick={handleSendPrizeOrder} className="w-full">
-                          <Send className="w-4 h-4 mr-2" />
-                          発注書をメール送信（PDF + データ添付）
-                        </Button>
-                        <p className="text-xs text-muted-foreground text-center">
-                          ※ パスワード保護されたファイルとパスワードメールが自動送信されます
-                        </p>
                       </div>
-                    ) : (
-                      <>
-                        <Alert className="border-primary bg-primary/10">
-                          <CheckCircle2 className="h-4 w-4 text-primary" />
-                          <AlertDescription>
-                            <strong>✅ 発注メール送信完了</strong>
-                            <br />
-                            <span className="text-sm">パスワードメールも自動送信されました</span>
-                          </AlertDescription>
-                        </Alert>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
 
-                        <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">発注日時:</span>
-                            <span className="font-medium">2024-12-20 10:30</span>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Mail className="w-5 h-5" />
+                    景品発注処理
+                  </CardTitle>
+                  <CardDescription>景品発注書を生成し業者へメール送信</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {!prizeOrderSent ? (
+                    <div className="space-y-3">
+                      <div className="bg-muted/50 rounded-lg p-4 space-y-4">
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label>納品希望日</Label>
+                            <Input 
+                              type="date" 
+                              value={prizeDeliveryDate}
+                              onChange={(e) => setPrizeDeliveryDate(e.target.value)}
+                            />
                           </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">納品予定日:</span>
-                            <span className="font-medium">未設定</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">経過日数:</span>
-                            <span className="font-medium text-destructive">5営業日（⚠️ アラート）</span>
-                          </div>
+                          
+                          {prizeInfo.length > 0 ? (
+                            <div className="space-y-4 pt-2">
+                              <Label>各賞ごとの業者指定</Label>
+                              {prizeInfo.map((prize, idx) => (
+                                <div key={idx} className="p-4 border rounded-lg bg-background space-y-3">
+                                   <div className="font-medium flex justify-between">
+                                     <span>{prize.rank}: {prize.name}</span>
+                                     <span className="text-sm text-muted-foreground">{prize.quantity}個</span>
+                                   </div>
+                                   <div className="grid grid-cols-2 gap-4">
+                                      <div className="space-y-1">
+                                         <Label className="text-xs text-muted-foreground">景品業者</Label>
+                                         <select 
+                                           className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                           value={prizeVendorSelections[idx]?.prizeVendor || ""}
+                                           onChange={(e) => setPrizeVendorSelections({
+                                             ...prizeVendorSelections,
+                                             [idx]: { ...(prizeVendorSelections[idx] || {}), prizeVendor: e.target.value }
+                                           })}
+                                         >
+                                            <option value="">選択してください</option>
+                                            <option value="vendorC">景品調達先C</option>
+                                            <option value="vendorD">景品調達先D</option>
+                                         </select>
+                                      </div>
+                                      <div className="space-y-1">
+                                         <Label className="text-xs text-muted-foreground">配送業者</Label>
+                                         <select 
+                                           className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                           value={prizeVendorSelections[idx]?.deliveryVendor || ""}
+                                           onChange={(e) => setPrizeVendorSelections({
+                                             ...prizeVendorSelections,
+                                             [idx]: { ...(prizeVendorSelections[idx] || {}), deliveryVendor: e.target.value }
+                                           })}
+                                         >
+                                            <option value="">選択してください</option>
+                                            <option value="deliveryA">配送業者A</option>
+                                            <option value="deliveryB">配送業者B</option>
+                                         </select>
+                                      </div>
+                                   </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">景品情報が設定されていません</p>
+                          )}
                         </div>
+                      </div>
+                      <Button onClick={handleSendPrizeOrder} className="w-full">
+                        <Send className="w-4 h-4 mr-2" />
+                        発注書をメール送信（PDF + データ添付）
+                      </Button>
+                      <p className="text-xs text-muted-foreground text-center">
+                        ※ パスワード保護されたファイルとパスワードメールが自動送信されます
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <Alert className="border-primary bg-primary/10">
+                        <CheckCircle2 className="h-4 w-4 text-primary" />
+                        <AlertDescription>
+                          <strong>✅ 発注メール送信完了</strong>
+                          <br />
+                          <span className="text-sm">パスワードメールも自動送信されました</span>
+                        </AlertDescription>
+                      </Alert>
 
-                        <Alert variant="destructive">
-                          <AlertTriangle className="h-4 w-4" />
-                          <AlertDescription>納品日が3営業日以上空欄です。業者に確認してください。</AlertDescription>
-                        </Alert>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+                      <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">発注日時:</span>
+                          <span className="font-medium">2024-12-20 10:30</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">納品予定日:</span>
+                          <span className="font-medium">未設定</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">経過日数:</span>
+                          <span className="font-medium text-destructive">5営業日（⚠️ アラート）</span>
+                        </div>
+                      </div>
+
+                      <Alert variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertDescription>納品日が3営業日以上空欄です。業者に確認してください。</AlertDescription>
+                      </Alert>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
 
               {prizeOrderSent && (
                 <Card className="border-2 border-primary/20">
@@ -2441,29 +2679,97 @@ export default function JASEventManager() {
                 </Card>
               )}
 
-              <Card className="border-2 border-primary/20">
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-primary" />
-                    セキュアデータ生成
+                    <Truck className="w-5 h-5" />
+                    配送情報領域
                   </CardTitle>
-                  <CardDescription>業者用の暗号化データを自動生成</CardDescription>
+                  <CardDescription>景品業者がアップロードした配送情報を確認できます</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button
-                    onClick={handleGenerateVendorData}
-                    className="w-full bg-gradient-to-r from-primary to-blue-600"
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    業者用データ生成
-                  </Button>
-                  <p className="text-sm text-muted-foreground mt-3 text-center">
-                    パスワードは自動的に別メールで送信されます
-                  </p>
+                  {!deliveryFileUploaded ? (
+                    <button
+                      onClick={() => {
+                        setDeliveryFileUploaded(true)
+                        toast({ title: "アップロード完了", description: "配送情報ファイルを受け付けました" })
+                      }}
+                      className="w-full border-2 border-dashed border-muted-foreground/30 rounded-lg p-12 hover:border-primary hover:bg-accent/50 transition-all"
+                    >
+                      <div className="flex flex-col items-center gap-3">
+                        <Truck className="w-12 h-12 text-muted-foreground" />
+                        <p className="font-medium">配送情報ファイルをアップロード</p>
+                        <p className="text-sm text-muted-foreground">.csv / .xlsx 形式</p>
+                      </div>
+                    </button>
+                  ) : (
+                    <div className="space-y-4">
+                       <div className="bg-muted/50 rounded-lg p-4 flex items-center justify-between">
+                         <div className="flex items-center gap-3">
+                           <FileCheck className="w-8 h-8 text-primary" />
+                           <div>
+                             <p className="font-medium">delivery_20241225.csv</p>
+                             <p className="text-sm text-muted-foreground">2024-12-21 14:00 アップロード済み</p>
+                           </div>
+                         </div>
+                         <div className="flex gap-2">
+                           <Button variant="outline" size="sm" onClick={() => toast({ title: "ダウンロード", description: "ファイルをダウンロードしました" })}>
+                             ダウンロード
+                           </Button>
+                            <Button variant="outline" size="sm" onClick={() => setDeliveryFileUploaded(false)}>
+                             リセット
+                           </Button>
+                         </div>
+                       </div>
+                       
+                       <Button className="w-full" variant="secondary" onClick={() => setShowDeliveryData(true)}>
+                          配送状況を確認する
+                       </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
           )}
+
+          {/* Delivery Status Modal */}
+          <Dialog open={showDeliveryData} onOpenChange={setShowDeliveryData}>
+            <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>配送状況詳細</DialogTitle>
+                <DialogDescription>アップロードされた配送情報の内容</DialogDescription>
+              </DialogHeader>
+              <div className="border rounded-md max-h-[60vh] overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>名前</TableHead>
+                      <TableHead>住所</TableHead>
+                      <TableHead>ステータス</TableHead>
+                      <TableHead>追跡番号</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {demoDeliveryData.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{item.name}</TableCell>
+                        <TableCell>{item.address}</TableCell>
+                        <TableCell>
+                          <Badge variant={item.status === "配送完了" ? "default" : "secondary"}>
+                            {item.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-mono">{item.tracking}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <DialogFooter>
+                <Button onClick={() => setShowDeliveryData(false)}>閉じる</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Screen 4: Accounting */}
           {currentScreen === "accounting" && (
@@ -3722,6 +4028,14 @@ export default function JASEventManager() {
             <div className="space-y-2">
               <label className="text-sm font-medium">発注先</label>
               <Input value="印刷会社A" readOnly />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">イメージ画像添付</label>
+              <Input type="file" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">初稿希望日</label>
+              <Input type="date" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">件名</label>
