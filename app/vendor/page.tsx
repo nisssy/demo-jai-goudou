@@ -34,39 +34,7 @@ import {
   Eye,
   ArrowLeft,
 } from "lucide-react"
-import { VendorSidebar } from "@/components/vendor-sidebar"
-
-// --- Type Definitions (Mirrored from app/page.tsx) ---
-type QuoteItem = {
-  id: number
-  name: string
-  quantity: number
-  unitPrice: number
-  included: boolean
-}
-
-type HallQuote = {
-  hallName: string
-  quoteItems: QuoteItem[]
-  percentage?: number
-  calculatedAmount?: number
-}
-
-type Project = {
-  id: string
-  companyName: string
-  hallNames: string[]
-  eventStartDate: string
-  eventEndDate: string
-  area: string
-  status: "draft" | "quote-created" | "confirmed" | "in-progress" | "completed"
-  budget: string
-  createdAt: string
-  salesPersonId: string
-  posterCount?: string
-  target?: string
-  hallQuotes?: HallQuote[]
-}
+import { Project, QuoteItem, HallQuote } from "@/types"
 
 export default function VendorView() {
   const { toast } = useToast()

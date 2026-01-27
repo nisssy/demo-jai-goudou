@@ -46,41 +46,7 @@ import {
   FileSpreadsheet,
   Download,
 } from "lucide-react"
-
-// --- Type Definitions ---
-type QuoteItem = {
-  id: number
-  name: string
-  quantity: number
-  unitPrice: number
-  included: boolean
-}
-
-type HallQuote = {
-  hallName: string
-  quoteItems: QuoteItem[]
-  percentage?: number
-  calculatedAmount?: number
-}
-
-type Project = {
-  id: string
-  companyName: string
-  hallNames: string[]
-  eventStartDate: string
-  eventEndDate: string
-  area: string
-  status: "draft" | "quote-created" | "confirmed" | "in-progress" | "completed"
-  budget: string
-  createdAt: string
-  salesPersonId: string
-  posterCount?: string
-  target?: string
-  hallQuotes?: HallQuote[]
-  // Prize Vendor specific fields
-  deliveryVendor?: string
-  orderFileName?: string
-}
+import { Project, QuoteItem, HallQuote } from "@/types"
 
 export default function PrizeVendorView() {
   const { toast } = useToast()

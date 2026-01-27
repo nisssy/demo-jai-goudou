@@ -54,61 +54,10 @@ import { Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CommonSidebar } from "@/components/common-sidebar"
 import { ProjectStepper } from "@/components/project-stepper"
+import { Project, HallQuote, QuoteItem, Employee, Company, Hall } from "@/types"
 
 type Screen = "list" | "proposal" | "production" | "lottery" | "accounting"
 type Role = "sales" | "admin"
-
-type Employee = {
-  id: string
-  name: string
-  email?: string
-}
-
-type Company = {
-  id: string
-  name: string
-  salesPersonId: string
-  email?: string
-}
-
-type Hall = {
-  id: string
-  name: string
-  companyId: string
-  salesPersonId: string
-  email?: string
-}
-
-type Project = {
-  id: string
-  companyName: string
-  hallNames: string[]
-  eventStartDate: string
-  eventEndDate: string
-  area: string
-  status: "draft" | "quote-created" | "confirmed" | "in-progress" | "completed"
-  budget: string
-  createdAt: string
-  salesPersonId: string
-  posterCount?: string
-  target?: string
-  hallQuotes?: HallQuote[]
-}
-
-type QuoteItem = {
-  id: number
-  name: string
-  quantity: number
-  unitPrice: number
-  included: boolean
-}
-
-type HallQuote = {
-  hallName: string
-  quoteItems: QuoteItem[]
-  percentage?: number
-  calculatedAmount?: number
-}
 
 export default function JASEventManager() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("list")
@@ -294,6 +243,7 @@ export default function JASEventManager() {
   })
   const [posterPrintQuantity, setPosterPrintQuantity] = useState<string>("50")
   const [posterPrintUnitPrice, setPosterPrintUnitPrice] = useState<string>("2000")
+  const [posterFirstDraftDate, setPosterFirstDraftDate] = useState("")
   
   const defaultQuoteItems: QuoteItem[] = [
     { id: 1, name: "ポスターデザイン", quantity: 1, unitPrice: 0, included: true },
@@ -847,6 +797,11 @@ export default function JASEventManager() {
       toast({
         title: "検証完了",
         description: "当選者リストに問題はありませんでした",
+      })
+    } else {
+      toast({
+        title: "再アップロード依頼を送信しました",
+        description: "ホール担当者にエラー内容とデータの再アップロード依頼メールを送信しました",
       })
     }
   }
@@ -4020,7 +3975,11 @@ export default function JASEventManager() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">初稿希望日</label>
-              <Input type="date" />
+              <Input
+                type="date"
+                value={posterFirstDraftDate}
+                onChange={(e) => setPosterFirstDraftDate(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">件名</label>
@@ -4046,7 +4005,7 @@ JASイベント管理チームです。
 - ポスター枚数: 50枚
 
 【納期】
-初稿: 2024年12月15日まで
+初稿: ${posterFirstDraftDate || "2024-12-15"}まで
 最終納品: 2024年12月20日まで
 
 初稿完成後はSTUDIOにアップロードをお願いいたします。
