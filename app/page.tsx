@@ -52,6 +52,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { CommonSidebar } from "@/components/common-sidebar"
 import { ProjectStepper } from "@/components/project-stepper"
 
 type Screen = "list" | "proposal" | "production" | "lottery" | "accounting"
@@ -1021,28 +1022,12 @@ export default function JASEventManager() {
   return (
     <div className="flex h-screen bg-background text-foreground">
       {/* Left Sidebar - Only show in list view */}
-      {currentScreen === "list" && (
-        <aside className="w-64 border-r border-border bg-card">
-          <div className="p-6">
-            <h1 className="text-xl font-bold text-foreground">JAS Event Manager</h1>
-            <p className="text-sm text-muted-foreground mt-1">抽選イベント管理</p>
-          </div>
-
-          <nav className="px-3 space-y-1">
-            <button
-              onClick={() => setCurrentScreen("list")}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                currentScreen === "list"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              }`}
-            >
-              <List className="w-5 h-5" />
-              <span className="font-medium">案件一覧</span>
-            </button>
-          </nav>
-        </aside>
-      )}
+          {currentScreen === "list" && (
+            <CommonSidebar
+              activeScreen={currentScreen}
+              onNavigate={(screen) => setCurrentScreen(screen as Screen)}
+            />
+          )}
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">

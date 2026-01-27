@@ -18,7 +18,7 @@ export function AppHeader() {
               pathname === "/" ? "text-foreground font-bold" : "text-muted-foreground"
             )}
           >
-            管理画面
+            DMM管理画面
           </Link>
           <Link
             href="/vendor"
@@ -28,6 +28,15 @@ export function AppHeader() {
             )}
           >
             デザイン業者画面
+          </Link>
+          <Link
+            href="/prize-vendor"
+            className={cn(
+              "transition-colors hover:text-primary",
+              pathname === "/prize-vendor" ? "text-foreground font-bold" : "text-muted-foreground"
+            )}
+          >
+            景品業者画面
           </Link>
         </nav>
       </div>

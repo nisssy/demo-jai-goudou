@@ -19,6 +19,14 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { 
   Calendar, 
   MapPin, 
@@ -33,10 +41,13 @@ import {
   DollarSign,
   Eye,
   ArrowLeft,
+  Package,
+  Truck,
+  FileSpreadsheet,
+  Download,
 } from "lucide-react"
-import { VendorSidebar } from "@/components/vendor-sidebar"
 
-// --- Type Definitions (Mirrored from app/page.tsx) ---
+// --- Type Definitions ---
 type QuoteItem = {
   id: number
   name: string
@@ -66,9 +77,12 @@ type Project = {
   posterCount?: string
   target?: string
   hallQuotes?: HallQuote[]
+  // Prize Vendor specific fields
+  deliveryVendor?: string
+  orderFileName?: string
 }
 
-export default function VendorView() {
+export default function PrizeVendorView() {
   const { toast } = useToast()
   
   // --- Mock Data ---
@@ -86,6 +100,8 @@ export default function VendorView() {
       salesPersonId: "E002",
       posterCount: "100",
       target: "女性40代",
+      deliveryVendor: "ヤマト運輸",
+      orderFileName: "20241115_個別発注書_メガホール大阪.xlsx"
     },
     {
       id: "P002",
@@ -100,6 +116,8 @@ export default function VendorView() {
       salesPersonId: "E003",
       posterCount: "40",
       target: "男性20代",
+      deliveryVendor: "佐川急便",
+      orderFileName: "20241210_個別発注書_サンライズホール.xlsx"
     },
     {
       id: "P003",
@@ -114,61 +132,65 @@ export default function VendorView() {
       salesPersonId: "E004",
       posterCount: "60",
       target: "ファミリー層",
+      deliveryVendor: "日本郵便",
+      orderFileName: "20250120_個別発注書_スカイホール.xlsx"
     },
   ])
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
 
   // --- Confirmation Dialog States ---
-  const [showPosterConfirm, setShowPosterConfirm] = useState(false)
-  const [showDmConfirm, setShowDmConfirm] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
+  const [previewData, setPreviewData] = useState<any[]>([])
+
+  // --- Mock CSV Data ---
+  const mockCsvData = [
+    { No: 1, 品名: "クオカード1000円分", 数量: 1, 配送先名: "山田太郎", 住所: "東京都渋谷区...", 電話番号: "090-1234-5678" },
+    { No: 2, 品名: "カタログギフト", 数量: 1, 配送先名: "佐藤花子", 住所: "神奈川県横浜市...", 電話番号: "080-2345-6789" },
+    { No: 3, 品名: "和牛セット", 数量: 1, 配送先名: "鈴木一郎", 住所: "大阪府大阪市...", 電話番号: "070-3456-7890" },
+    { No: 4, 品名: "旅行券", 数量: 1, 配送先名: "高橋美咲", 住所: "北海道札幌市...", 電話番号: "090-9876-5432" },
+    { No: 5, 品名: "お米券", 数量: 2, 配送先名: "伊藤健太", 住所: "福岡県福岡市...", 電話番号: "080-8765-4321" },
+  ]
 
   // --- File Upload Logic ---
-  const posterFileInputRef = useRef<HTMLInputElement>(null)
-  const dmFileInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handlePosterFileClick = () => {
-    posterFileInputRef.current?.click()
+  const handleFileClick = () => {
+    fileInputRef.current?.click()
   }
 
-  const handleDmFileClick = () => {
-    dmFileInputRef.current?.click()
-  }
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>, type: 'poster' | 'dm') => {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      console.log(`${type} file selected:`, file.name)
+      console.log(`file selected:`, file.name)
       toast({
         title: "ファイル選択",
-        description: `${type === 'poster' ? 'ポスター' : 'DM'}のデザイン画像「${file.name}」を選択しました`,
+        description: `配送情報ファイル「${file.name}」を選択しました`,
       })
     }
   }
 
-  const handlePosterSubmit = () => {
-    setShowPosterConfirm(false)
+  const handleSubmit = () => {
+    setShowConfirm(false)
     toast({
       title: "送信完了",
-      description: "ポスターデザインを送信しました",
+      description: "配送情報を送信しました",
     })
   }
 
-  const handleDmSubmit = () => {
-    setShowDmConfirm(false)
-    toast({
-      title: "送信完了",
-      description: "DMデザインを送信しました",
-    })
+  const handlePreview = () => {
+    setPreviewData(mockCsvData)
+    setShowPreview(true)
   }
 
   // --- UI Components ---
 
-  // List View (with Sidebar showing "案件一覧" button and title)
+  // List View (with Sidebar showing only "案件一覧" button)
   if (!selectedProject) {
     return (
       <div className="flex h-[calc(100vh-4rem)] bg-gray-50/50">
-        {/* Sidebar: Common Component */}
+        {/* Sidebar: Common Sidebar */}
         <CommonSidebar activeScreen="list" />
 
         {/* Main Content: Project List */}
@@ -293,107 +315,88 @@ export default function VendorView() {
               </CardContent>
             </Card>
 
-            {/* Card 2: ポスター領域 */}
+            {/* Card 2: 景品領域 */}
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <ImageIcon className="w-5 h-5" />
-                  ポスター領域
+                  <Package className="w-5 h-5" />
+                  景品領域
                 </CardTitle>
-                <CardDescription>ポスターデザインのアップロードとスケジュール管理</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                      <Label>初稿希望日</Label>
-                      <Input type="date" className="w-full" />
-                  </div>
-                  <div className="space-y-2">
-                      <Label>納品完了日</Label>
-                      <Input type="date" className="w-full" />
+                
+                {/* 発注書情報 */}
+                <div>
+                  <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    発注書情報・指定配送業者
+                  </h3>
+                  <div className="bg-muted/50 p-4 rounded-lg space-y-4">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Truck className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">指定配送業者:</span>
+                      <span className="font-bold">{selectedProject.deliveryVendor || "未定"}</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-background border p-3 rounded-md shadow-sm">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="bg-green-100 text-green-700 p-2 rounded shrink-0">
+                          <FileSpreadsheet className="w-5 h-5" />
+                        </div>
+                        <span className="text-sm font-medium truncate">{selectedProject.orderFileName || "発注書未発行.xlsx"}</span>
+                      </div>
+                      <div className="flex items-center gap-2 ml-2 shrink-0">
+                        <Button variant="outline" size="sm" className="gap-2" onClick={handlePreview}>
+                          <Eye className="w-4 h-4" />
+                          プレビュー
+                        </Button>
+                        <Button variant="outline" size="sm" className="gap-2">
+                          <Download className="w-4 h-4" />
+                          DL
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div 
-                  className="border-2 border-dashed rounded-lg p-8 flex flex-col items-center justify-center text-center hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={handlePosterFileClick}
-                >
-                  <input 
-                    type="file" 
-                    ref={posterFileInputRef} 
-                    className="hidden" 
-                    accept="image/*,.pdf,.ai"
-                    onChange={(e) => handleFileChange(e, 'poster')}
-                  />
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                    <Upload className="w-6 h-6 text-primary" />
-                  </div>
-                  <h3 className="font-semibold mb-1">デザインイメージをアップロード</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    ドラッグ＆ドロップ、またはクリックしてファイルを選択
+                <Separator />
+
+                {/* 配送情報アップロード */}
+                <div>
+                  <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <Upload className="w-4 h-4" />
+                    配送情報アップロード領域
+                  </h3>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    発注書情報に追跡番号が追加されたファイルをアップロードしてください
                   </p>
-                  <Button variant="outline" size="sm" onClick={(e) => {
-                    e.stopPropagation()
-                    handlePosterFileClick()
-                  }}>ファイルを選択</Button>
+                  
+                  <div 
+                    className="border-2 border-dashed rounded-lg p-8 flex flex-col items-center justify-center text-center hover:bg-muted/50 transition-colors cursor-pointer bg-muted/10"
+                    onClick={handleFileClick}
+                  >
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept=".xlsx,.xls,.csv"
+                      onChange={handleFileChange}
+                    />
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                      <Upload className="w-6 h-6 text-primary" />
+                    </div>
+                    <h3 className="font-semibold mb-1">配送情報をアップロード</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      ドラッグ＆ドロップ、またはクリックしてファイルを選択
+                    </p>
+                    <Button variant="outline" size="sm" onClick={(e) => {
+                      e.stopPropagation()
+                      handleFileClick()
+                    }}>ファイルを選択</Button>
+                  </div>
                 </div>
 
                 <div className="flex justify-end pt-2">
-                  <Button className="w-full sm:w-auto" onClick={() => setShowPosterConfirm(true)}>
-                    <Send className="w-4 h-4 mr-2" />
-                    送信する
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Card 3: DM領域 */}
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Mail className="w-5 h-5" />
-                  DM領域
-                </CardTitle>
-                  <CardDescription>DMデザインのアップロードとスケジュール管理</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                  <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                      <Label>初稿希望日</Label>
-                      <Input type="date" className="w-full" />
-                  </div>
-                  <div className="space-y-2">
-                      <Label>納品完了日</Label>
-                      <Input type="date" className="w-full" />
-                  </div>
-                </div>
-
-                <div 
-                  className="border-2 border-dashed rounded-lg p-8 flex flex-col items-center justify-center text-center hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={handleDmFileClick}
-                >
-                  <input 
-                    type="file" 
-                    ref={dmFileInputRef} 
-                    className="hidden" 
-                    accept="image/*,.pdf,.ai"
-                    onChange={(e) => handleFileChange(e, 'dm')}
-                  />
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                    <Upload className="w-6 h-6 text-primary" />
-                  </div>
-                  <h3 className="font-semibold mb-1">デザインイメージをアップロード</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    ドラッグ＆ドロップ、またはクリックしてファイルを選択
-                  </p>
-                  <Button variant="outline" size="sm" onClick={(e) => {
-                    e.stopPropagation()
-                    handleDmFileClick()
-                  }}>ファイルを選択</Button>
-                </div>
-
-                <div className="flex justify-end pt-2">
-                  <Button className="w-full sm:w-auto" onClick={() => setShowDmConfirm(true)}>
+                  <Button className="w-full sm:w-auto" onClick={() => setShowConfirm(true)}>
                     <Send className="w-4 h-4 mr-2" />
                     送信する
                   </Button>
@@ -405,34 +408,48 @@ export default function VendorView() {
         </ScrollArea>
       </div>
 
-      {/* Confirmation Dialogs */}
-      <Dialog open={showPosterConfirm} onOpenChange={setShowPosterConfirm}>
+      {/* Confirmation Dialog */}
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>ポスターデザインの送信</DialogTitle>
+            <DialogTitle>配送情報の送信</DialogTitle>
             <DialogDescription>
-              アップロードしたデザインを送信しますか？この操作は取り消せません。
+              アップロードした配送情報を送信しますか？この操作は取り消せません。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPosterConfirm(false)}>キャンセル</Button>
-            <Button onClick={handlePosterSubmit}>送信</Button>
+            <Button variant="outline" onClick={() => setShowConfirm(false)}>キャンセル</Button>
+            <Button onClick={handleSubmit}>送信</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showDmConfirm} onOpenChange={setShowDmConfirm}>
-        <DialogContent>
+      {/* Preview Dialog */}
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>DMデザインの送信</DialogTitle>
-            <DialogDescription>
-              アップロードしたデザインを送信しますか？この操作は取り消せません。
-            </DialogDescription>
+            <DialogTitle>発注書プレビュー</DialogTitle>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDmConfirm(false)}>キャンセル</Button>
-            <Button onClick={handleDmSubmit}>送信</Button>
-          </DialogFooter>
+          <div className="border rounded-md">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {Object.keys(mockCsvData[0] || {}).map((header) => (
+                    <TableHead key={header}>{header}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {mockCsvData.map((row, i) => (
+                  <TableRow key={i}>
+                    {Object.values(row).map((cell: any, j) => (
+                      <TableCell key={j}>{cell}</TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </DialogContent>
       </Dialog>
 
