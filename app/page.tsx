@@ -236,6 +236,8 @@ export default function JASEventManager() {
   const [workflowMessage, setWorkflowMessage] = useState<string>("")
   const [hallQuotes, setHallQuotes] = useState<{ [hallName: string]: QuoteItem[] }>({})
   const [hallPercentages, setHallPercentages] = useState<{ [hallName: string]: number }>({})
+  const [proportionMode, setProportionMode] = useState<"hall" | "company">("hall")
+  const [companyPercentages, setCompanyPercentages] = useState<{ [companyId: string]: number }>({})
   const [totalQuoteItems, setTotalQuoteItems] = useState<{ [itemId: number]: string }>({
     1: "50000", // ポスターデザイン
     3: "150000", // DM発送代行
@@ -244,6 +246,8 @@ export default function JASEventManager() {
   const [posterPrintQuantity, setPosterPrintQuantity] = useState<string>("50")
   const [posterPrintUnitPrice, setPosterPrintUnitPrice] = useState<string>("2000")
   const [posterFirstDraftDate, setPosterFirstDraftDate] = useState("")
+  const [dmFirstDraftDate, setDmFirstDraftDate] = useState("")
+  const [dmImageUploaded, setDmImageUploaded] = useState(false)
   
   const defaultQuoteItems: QuoteItem[] = [
     { id: 1, name: "ポスターデザイン", quantity: 1, unitPrice: 0, included: true },
@@ -1632,83 +1636,217 @@ export default function JASEventManager() {
 
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <Label>各ホールの割合（%）</Label>
+                          <div className="flex items-center gap-4">
+                            <Label>各項目の割合（%）</Label>
+                            <div className="flex items-center space-x-1 bg-muted/50 p-1 rounded-lg">
+                              <Button
+                                variant={proportionMode === "hall" ? "default" : "ghost"}
+                                size="sm"
+                                onClick={() => setProportionMode("hall")}
+                                className="h-7 text-xs"
+                              >
+                                ホールごと
+                              </Button>
+                              <Button
+                                variant={proportionMode === "company" ? "default" : "ghost"}
+                                size="sm"
+                                onClick={() => {
+                                  setProportionMode("company")
+                                  // Initialize company percentages based on halls if not set
+                                  const uniqueCompanyIds = Array.from(new Set(hallCompanyIds.filter((id, idx) => hallNames[idx] && hallNames[idx].trim() !== "" && id)))
+                                  if (Object.keys(companyPercentages).length === 0 && uniqueCompanyIds.length > 0) {
+                                    const newCompanyPercentages: { [key: string]: number } = {}
+                                    const equalPct = Math.floor(100 / uniqueCompanyIds.length)
+                                    const remainder = 100 - (equalPct * uniqueCompanyIds.length)
+                                    uniqueCompanyIds.forEach((id, idx) => {
+                                      newCompanyPercentages[id] = equalPct + (idx < remainder ? 1 : 0)
+                                    })
+                                    setCompanyPercentages(newCompanyPercentages)
+                                    
+                                    // Update hall percentages accordingly
+                                    const newHallPercentages: { [key: string]: number } = {}
+                                    uniqueCompanyIds.forEach(id => {
+                                      const companyPct = newCompanyPercentages[id]
+                                      const hallsInCompany = hallNames.filter((_, hIdx) => hallCompanyIds[hIdx] === id && hallNames[hIdx].trim() !== "")
+                                      if (hallsInCompany.length > 0) {
+                                        const hallPct = companyPct / hallsInCompany.length
+                                        hallsInCompany.forEach(hName => {
+                                          newHallPercentages[hName] = hallPct
+                                        })
+                                      }
+                                    })
+                                    setHallPercentages(newHallPercentages)
+                                  }
+                                }}
+                                className="h-7 text-xs"
+                              >
+                                法人ごと
+                              </Button>
+                            </div>
+                          </div>
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                              const validHallNames = hallNames.filter((name) => name.trim() !== "")
-                              if (validHallNames.length > 0) {
-                                const equalPercentage = Math.floor(100 / validHallNames.length)
-                                const remainder = 100 - (equalPercentage * validHallNames.length)
-                                const newPercentages: { [hallName: string]: number } = {}
-                                validHallNames.forEach((hn, idx) => {
-                                  // 端数分を上から1%ずつ振る
-                                  newPercentages[hn] = equalPercentage + (idx < remainder ? 1 : 0)
-                                })
-                                setHallPercentages(newPercentages)
+                              if (proportionMode === "hall") {
+                                const validHallNames = hallNames.filter((name) => name.trim() !== "")
+                                if (validHallNames.length > 0) {
+                                  const equalPercentage = Math.floor(100 / validHallNames.length)
+                                  const remainder = 100 - (equalPercentage * validHallNames.length)
+                                  const newPercentages: { [hallName: string]: number } = {}
+                                  validHallNames.forEach((hn, idx) => {
+                                    // 端数分を上から1%ずつ振る
+                                    newPercentages[hn] = equalPercentage + (idx < remainder ? 1 : 0)
+                                  })
+                                  setHallPercentages(newPercentages)
+                                }
+                              } else {
+                                const uniqueCompanyIds = Array.from(new Set(hallCompanyIds.filter((id, idx) => hallNames[idx] && hallNames[idx].trim() !== "" && id)))
+                                if (uniqueCompanyIds.length > 0) {
+                                  const equalPercentage = Math.floor(100 / uniqueCompanyIds.length)
+                                  const remainder = 100 - (equalPercentage * uniqueCompanyIds.length)
+                                  const newCompanyPercentages: { [key: string]: number } = {}
+                                  uniqueCompanyIds.forEach((id, idx) => {
+                                    newCompanyPercentages[id] = equalPercentage + (idx < remainder ? 1 : 0)
+                                  })
+                                  setCompanyPercentages(newCompanyPercentages)
+
+                                  // Update hall percentages
+                                  const newHallPercentages: { [key: string]: number } = {}
+                                  uniqueCompanyIds.forEach(id => {
+                                    const companyPct = newCompanyPercentages[id]
+                                    const hallsInCompany = hallNames.filter((_, hIdx) => hallCompanyIds[hIdx] === id && hallNames[hIdx].trim() !== "")
+                                    if (hallsInCompany.length > 0) {
+                                      const hallPct = companyPct / hallsInCompany.length
+                                      hallsInCompany.forEach(hName => {
+                                        newHallPercentages[hName] = hallPct
+                                      })
+                                    }
+                                  })
+                                  setHallPercentages(newHallPercentages)
+                                }
                               }
                             }}
                           >
                             均等に分配
                           </Button>
                         </div>
-                        {hallNames.filter((name) => name.trim() !== "").map((hallName, index) => {
-                          const percentage = hallPercentages[hallName] || 0
-                          const totalPercentage = Object.values(hallPercentages).reduce((sum, p) => sum + p, 0)
-                          // 各項目の合計金額を計算
-                          const posterPrintQty = parseFloat(posterPrintQuantity) || 0
-                          const posterPrintPrice = parseFloat(posterPrintUnitPrice) || 0
-                          const posterPrintAmount = posterPrintQty * posterPrintPrice
-                          const totalAmount = Object.values(totalQuoteItems).reduce((sum, amount) => {
-                            return sum + (parseFloat(amount) || 0)
-                          }, 0) + posterPrintAmount
-                          const calculatedAmount = totalAmount > 0 ? Math.floor((totalAmount * percentage) / 100) : 0
-                          const remainder = totalAmount > 0 ? totalAmount - Object.keys(hallPercentages).reduce((sum, hn) => {
-                            const p = hallPercentages[hn] || 0
-                            return sum + Math.floor((totalAmount * p) / 100)
-                          }, 0) : 0
+                        {proportionMode === "hall" ? (
+                          hallNames.filter((name) => name.trim() !== "").map((hallName, index) => {
+                            const percentage = hallPercentages[hallName] || 0
+                            // 各項目の合計金額を計算
+                            const posterPrintQty = parseFloat(posterPrintQuantity) || 0
+                            const posterPrintPrice = parseFloat(posterPrintUnitPrice) || 0
+                            const posterPrintAmount = posterPrintQty * posterPrintPrice
+                            const totalAmount = Object.values(totalQuoteItems).reduce((sum, amount) => {
+                              return sum + (parseFloat(amount) || 0)
+                            }, 0) + posterPrintAmount
+                            const calculatedAmount = totalAmount > 0 ? Math.floor((totalAmount * percentage) / 100) : 0
 
-                          return (
-                            <div key={index} className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <Label htmlFor={`percentage-${index}`} className="flex-1">
-                                  {hallName} の割合
-                                </Label>
-                                <Input
-                                  id={`percentage-${index}`}
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  step="5"
-                                  placeholder="0"
-                                  value={percentage || ""}
-                                  onChange={(e) => {
-                                    let value = e.target.value
-                                    // 0から始まる数字を防ぐ（ただし、0単体は許可）
-                                    if (value && value.length > 1 && value.startsWith("0") && value[1] !== ".") {
-                                      value = value.replace(/^0+/, "")
-                                    }
-                                    const numValue = parseFloat(value) || 0
-                                    // 5の倍数に丸める
-                                    const roundedValue = Math.round(numValue / 5) * 5
-                                    const newPercentages = { ...hallPercentages }
-                                    newPercentages[hallName] = Math.min(100, Math.max(0, roundedValue))
-                                    setHallPercentages(newPercentages)
-                                  }}
-                                  className="w-24"
-                                />
-                                <span className="text-sm text-muted-foreground">%</span>
-                                {totalAmount > 0 && (
-                                  <span className="text-sm font-medium ml-2">
-                                    = ¥{calculatedAmount.toLocaleString()}
-                                  </span>
-                                )}
+                            return (
+                              <div key={index} className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Label htmlFor={`percentage-${index}`} className="flex-1">
+                                    {hallName} の割合
+                                  </Label>
+                                  <Input
+                                    id={`percentage-${index}`}
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="5"
+                                    placeholder="0"
+                                    value={percentage || ""}
+                                    onChange={(e) => {
+                                      let value = e.target.value
+                                      if (value && value.length > 1 && value.startsWith("0") && value[1] !== ".") {
+                                        value = value.replace(/^0+/, "")
+                                      }
+                                      const numValue = parseFloat(value) || 0
+                                      // 5の倍数に丸める (Hall mode: allow finer control? keeping simple for now)
+                                      const roundedValue = numValue // Math.round(numValue / 5) * 5 // Allow precise input if needed, or keep consistent
+                                      const newPercentages = { ...hallPercentages }
+                                      newPercentages[hallName] = Math.min(100, Math.max(0, roundedValue))
+                                      setHallPercentages(newPercentages)
+                                    }}
+                                    className="w-24"
+                                  />
+                                  <span className="text-sm text-muted-foreground">%</span>
+                                  {totalAmount > 0 && (
+                                    <span className="text-sm font-medium ml-2">
+                                      = ¥{calculatedAmount.toLocaleString()}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )
-                        })}
+                            )
+                          })
+                        ) : (
+                          // Company Mode
+                          Array.from(new Set(hallCompanyIds.filter((id, idx) => hallNames[idx] && hallNames[idx].trim() !== "" && id))).map((companyId, index) => {
+                            const company = companies.find(c => c.id === companyId)
+                            const percentage = companyPercentages[companyId] || 0
+                            
+                            // Calculate Company Amount
+                            const posterPrintQty = parseFloat(posterPrintQuantity) || 0
+                            const posterPrintPrice = parseFloat(posterPrintUnitPrice) || 0
+                            const posterPrintAmount = posterPrintQty * posterPrintPrice
+                            const totalAmount = Object.values(totalQuoteItems).reduce((sum, amount) => {
+                              return sum + (parseFloat(amount) || 0)
+                            }, 0) + posterPrintAmount
+                            const calculatedAmount = totalAmount > 0 ? Math.floor((totalAmount * percentage) / 100) : 0
+
+                            return (
+                              <div key={companyId} className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Label htmlFor={`company-percentage-${index}`} className="flex-1">
+                                    {company?.name || "不明な法人"} の割合
+                                  </Label>
+                                  <Input
+                                    id={`company-percentage-${index}`}
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="5"
+                                    placeholder="0"
+                                    value={percentage || ""}
+                                    onChange={(e) => {
+                                      let value = e.target.value
+                                      if (value && value.length > 1 && value.startsWith("0") && value[1] !== ".") {
+                                        value = value.replace(/^0+/, "")
+                                      }
+                                      const numValue = parseFloat(value) || 0
+                                      const roundedValue = numValue
+                                      
+                                      const newCompanyPercentages = { ...companyPercentages }
+                                      newCompanyPercentages[companyId] = Math.min(100, Math.max(0, roundedValue))
+                                      setCompanyPercentages(newCompanyPercentages)
+
+                                      // Update Halls for this company
+                                      const hallsInCompany = hallNames.filter((_, hIdx) => hallCompanyIds[hIdx] === companyId && hallNames[hIdx].trim() !== "")
+                                      if (hallsInCompany.length > 0) {
+                                        const hallPct = newCompanyPercentages[companyId] / hallsInCompany.length
+                                        const newHallPercentages = { ...hallPercentages }
+                                        hallsInCompany.forEach(hName => {
+                                          newHallPercentages[hName] = hallPct
+                                        })
+                                        setHallPercentages(newHallPercentages)
+                                      }
+                                    }}
+                                    className="w-24"
+                                  />
+                                  <span className="text-sm text-muted-foreground">%</span>
+                                  {totalAmount > 0 && (
+                                    <span className="text-sm font-medium ml-2">
+                                      = ¥{calculatedAmount.toLocaleString()}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })
+                        )}
                         
                         {(() => {
                           // 各項目の合計金額を計算
@@ -2117,18 +2255,34 @@ export default function JASEventManager() {
                     </div>
                   </div>
 
-                  <Button
-                    onClick={() => {
-                      setPosterDraftStatus("初稿完成")
-                      setShowFirstDraftModal(true)
-                    }}
-                    variant="outline"
-                    className="w-full"
-                    disabled={posterDraftStatus !== "未作成"}
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    ポスター初稿をSTUDIOにアップロード
-                  </Button>
+                  {posterDraftStatus === "未作成" ? (
+                    <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center bg-muted/20">
+                      <p className="text-muted-foreground mb-4">デザイン業者からの初稿アップロード待ち</p>
+                      <Button
+                        onClick={() => {
+                          setPosterDraftStatus("初稿完成")
+                        }}
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs text-muted-foreground hover:text-primary"
+                      >
+                        (デモ用: アップロードを受信)
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border border-border rounded-lg p-4 mb-4 flex items-center justify-between bg-card">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-primary/10 p-2 rounded">
+                          <ImageIcon className="w-6 h-6 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">poster_draft_v1.jpg</p>
+                          <p className="text-xs text-muted-foreground">2024/12/20 14:30 アップロード済み</p>
+                        </div>
+                      </div>
+                      <Badge variant="outline">初稿</Badge>
+                    </div>
+                  )}
 
                   <Button
                     onClick={() => setShowFirstDraftModal(true)}
@@ -2317,33 +2471,55 @@ export default function JASEventManager() {
                 <CardContent className="space-y-4">
                   {!fileUploaded ? (
                     <div className="space-y-4">
-                      <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-8 text-center bg-muted/20">
-                        <p className="text-muted-foreground mb-4">ホールがPSPにアップロードした当選者リストを同期します</p>
-                        <div className="flex justify-center gap-4">
-                          <Button 
-                            onClick={() => {
-                              setFileUploaded(true)
-                              setShowWinnerListError(false)
-                              setWinnerListValidated(true)
-                              toast({ title: "同期完了", description: "PSPから正常なデータを取得しました" })
-                            }}
-                            className="bg-primary"
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center bg-muted/20 hover:bg-muted/30 transition-colors">
+                          <p className="font-medium mb-2">PSP連携</p>
+                          <p className="text-sm text-muted-foreground mb-4">ホールがアップロードしたデータを同期</p>
+                          <div className="flex flex-col gap-2">
+                            <Button 
+                              onClick={() => {
+                                setFileUploaded(true)
+                                setShowWinnerListError(false)
+                                setWinnerListValidated(true)
+                                toast({ title: "同期完了", description: "PSPから正常なデータを取得しました" })
+                              }}
+                              className="bg-primary w-full"
+                              size="sm"
+                            >
+                              <Upload className="w-4 h-4 mr-2" />
+                              正常データを同期
+                            </Button>
+                            <Button 
+                              onClick={() => {
+                                setFileUploaded(true)
+                                setShowWinnerListError(true)
+                                setWinnerListValidated(false)
+                                toast({ title: "同期完了", description: "PSPからデータを取得しましたが、不整合があります", variant: "destructive" })
+                              }}
+                              variant="destructive"
+                              className="w-full"
+                              size="sm"
+                            >
+                              <AlertTriangle className="w-4 h-4 mr-2" />
+                              異常データを同期
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center bg-muted/20 hover:bg-muted/30 transition-colors">
+                          <p className="font-medium mb-2">ファイルアップロード</p>
+                          <p className="text-sm text-muted-foreground mb-4">手元のExcelファイルをアップロード</p>
+                          <div className="flex flex-col items-center justify-center h-[88px] border border-dashed rounded bg-background cursor-pointer hover:bg-accent/50"
+                               onClick={() => {
+                                 setFileUploaded(true)
+                                 setShowWinnerListError(false)
+                                 setWinnerListValidated(true)
+                                 toast({ title: "アップロード完了", description: "ファイルが正常にアップロードされました" })
+                               }}
                           >
-                            <Upload className="w-4 h-4 mr-2" />
-                            正常データを同期（デモ）
-                          </Button>
-                          <Button 
-                            onClick={() => {
-                              setFileUploaded(true)
-                              setShowWinnerListError(true)
-                              setWinnerListValidated(false)
-                              toast({ title: "同期完了", description: "PSPからデータを取得しましたが、不整合があります", variant: "destructive" })
-                            }}
-                            variant="destructive"
-                          >
-                            <AlertTriangle className="w-4 h-4 mr-2" />
-                            異常データを同期（デモ）
-                          </Button>
+                            <Upload className="w-6 h-6 text-muted-foreground mb-2" />
+                            <span className="text-xs text-muted-foreground">クリックしてファイルを選択</span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2629,30 +2805,35 @@ export default function JASEventManager() {
                 </CardHeader>
                 <CardContent>
                   {!deliveryFileUploaded ? (
-                    <button
-                      onClick={() => {
-                        setDeliveryFileUploaded(true)
-                        toast({ title: "アップロード完了", description: "配送情報ファイルを受け付けました" })
-                      }}
-                      className="w-full border-2 border-dashed border-muted-foreground/30 rounded-lg p-12 hover:border-primary hover:bg-accent/50 transition-all"
-                    >
-                      <div className="flex flex-col items-center gap-3">
-                        <Truck className="w-12 h-12 text-muted-foreground" />
-                        <p className="font-medium">配送情報ファイルをアップロード</p>
-                        <p className="text-sm text-muted-foreground">.csv / .xlsx 形式</p>
-                      </div>
-                    </button>
+                    <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center bg-muted/20">
+                      <p className="text-muted-foreground mb-4">景品業者からの配送情報アップロード待ち</p>
+                      <Button
+                        onClick={() => {
+                          setDeliveryFileUploaded(true)
+                          toast({ title: "データ受信", description: "景品業者から配送情報がアップロードされました" })
+                        }}
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs text-muted-foreground hover:text-primary"
+                      >
+                        (デモ用: アップロードを受信)
+                      </Button>
+                    </div>
                   ) : (
                     <div className="space-y-4">
                        <div className="bg-muted/50 rounded-lg p-4 flex items-center justify-between">
                          <div className="flex items-center gap-3">
                            <FileCheck className="w-8 h-8 text-primary" />
                            <div>
-                             <p className="font-medium">delivery_20241225.csv</p>
+                             <p className="font-medium">delivery_report_20241225.pdf</p>
                              <p className="text-sm text-muted-foreground">2024-12-21 14:00 アップロード済み</p>
                            </div>
                          </div>
                          <div className="flex gap-2">
+                           <Button variant="outline" size="sm" onClick={() => setShowDeliveryData(true)}>
+                             <Eye className="w-4 h-4 mr-2" />
+                             プレビュー
+                           </Button>
                            <Button variant="outline" size="sm" onClick={() => toast({ title: "ダウンロード", description: "ファイルをダウンロードしました" })}>
                              ダウンロード
                            </Button>
@@ -2672,40 +2853,98 @@ export default function JASEventManager() {
             </div>
           )}
 
-          {/* Delivery Status Modal */}
+          {/* Delivery Status Modal (PDF Preview) */}
           <Dialog open={showDeliveryData} onOpenChange={setShowDeliveryData}>
-            <DialogContent className="max-w-3xl">
+            <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
               <DialogHeader>
-                <DialogTitle>配送状況詳細</DialogTitle>
-                <DialogDescription>アップロードされた配送情報の内容</DialogDescription>
+                <DialogTitle>配送情報プレビュー</DialogTitle>
+                <DialogDescription>delivery_report_20241225.pdf</DialogDescription>
               </DialogHeader>
-              <div className="border rounded-md max-h-[60vh] overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>名前</TableHead>
-                      <TableHead>住所</TableHead>
-                      <TableHead>ステータス</TableHead>
-                      <TableHead>追跡番号</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {demoDeliveryData.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.name}</TableCell>
-                        <TableCell>{item.address}</TableCell>
-                        <TableCell>
-                          <Badge variant={item.status === "配送完了" ? "default" : "secondary"}>
-                            {item.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-mono">{item.tracking}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <div className="flex-1 overflow-auto bg-gray-100 p-4 rounded-md border">
+                <div className="bg-white text-black p-12 shadow-lg min-h-[800px] mx-auto max-w-[210mm] relative">
+                  {/* PDF Header */}
+                  <div className="flex justify-between items-start mb-12">
+                    <div>
+                      <h1 className="text-2xl font-serif font-bold mb-4 border-b-2 border-black pb-2 inline-block">配送完了報告書</h1>
+                      <p className="text-sm">案件名：オメガホール大抽選会 景品配送</p>
+                    </div>
+                    <div className="text-right text-sm">
+                      <p>発行日：2024年12月21日</p>
+                      <p>No. 20241221-001</p>
+                    </div>
+                  </div>
+
+                  {/* To */}
+                  <div className="mb-12">
+                    <p className="text-lg underline decoration-1 mb-2">株式会社オメガ 御中</p>
+                    <p className="text-sm text-gray-600 ml-4">ご担当者様</p>
+                  </div>
+
+                  {/* From */}
+                  <div className="mb-12 text-right">
+                    <p className="font-bold mb-1">景品配送代行サービス株式会社</p>
+                    <p className="text-xs text-gray-600">〒100-0001 東京都千代田区...</p>
+                    <p className="text-xs text-gray-600">TEL: 03-1234-5678</p>
+                  </div>
+
+                  {/* Content */}
+                  <div className="mb-8">
+                    <p className="mb-4">拝啓</p>
+                    <p className="mb-4">平素は格別のご高配を賜り、厚く御礼申し上げます。<br />
+                    ご依頼いただきました景品の配送が完了いたしましたので、下記の通りご報告申し上げます。</p>
+                    <p className="text-right">敬具</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h3 className="font-bold border-l-4 border-black pl-2 mb-4">配送明細</h3>
+                    <table className="w-full border-collapse border border-black text-sm">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="border border-black p-2 text-left">No.</th>
+                          <th className="border border-black p-2 text-left">配送先氏名</th>
+                          <th className="border border-black p-2 text-left">配送状況</th>
+                          <th className="border border-black p-2 text-left">配送業者</th>
+                          <th className="border border-black p-2 text-left">追跡番号</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {demoDeliveryData.map((item, index) => (
+                          <tr key={item.id}>
+                            <td className="border border-black p-2 text-center">{index + 1}</td>
+                            <td className="border border-black p-2">{item.name} 様</td>
+                            <td className="border border-black p-2">{item.status}</td>
+                            <td className="border border-black p-2">ヤマト運輸</td>
+                            <td className="border border-black p-2 font-mono">{item.tracking}</td>
+                          </tr>
+                        ))}
+                        {/* Fill empty rows for PDF look */}
+                        {[...Array(5)].map((_, i) => (
+                          <tr key={`empty-${i}`}>
+                            <td className="border border-black p-2">&nbsp;</td>
+                            <td className="border border-black p-2"></td>
+                            <td className="border border-black p-2"></td>
+                            <td className="border border-black p-2"></td>
+                            <td className="border border-black p-2"></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Stamp area */}
+                  <div className="absolute bottom-12 right-12">
+                    <div className="border border-red-500 text-red-500 w-20 h-20 rounded-full flex flex-col items-center justify-center rotate-[-15deg] opacity-80">
+                      <span className="text-xs border-b border-red-500 w-16 text-center pb-1">配送代行</span>
+                      <span className="text-sm font-bold py-1">確認済</span>
+                      <span className="text-xs border-t border-red-500 w-16 text-center pt-1">12.21</span>
+                    </div>
+                  </div>
+                </div>
               </div>
               <DialogFooter>
+                <Button variant="outline" onClick={() => toast({ title: "印刷", description: "プリンターに送信しました" })}>
+                  印刷
+                </Button>
                 <Button onClick={() => setShowDeliveryData(false)}>閉じる</Button>
               </DialogFooter>
             </DialogContent>
@@ -4243,6 +4482,42 @@ JASイベント管理チームです。
               <Input value="デザイン業者B" readOnly />
             </div>
             <div className="space-y-2">
+              <label className="text-sm font-medium">初稿希望日</label>
+              <Input
+                type="date"
+                value={dmFirstDraftDate}
+                onChange={(e) => setDmFirstDraftDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">イメージ画像</label>
+              {!dmImageUploaded ? (
+                <div 
+                  className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 text-center hover:bg-muted/20 cursor-pointer transition-colors"
+                  onClick={() => setDmImageUploaded(true)}
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <Upload className="w-8 h-8 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">クリックして画像をアップロード</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="border rounded-lg p-4 flex items-center justify-between bg-muted/20">
+                  <div className="flex items-center gap-3">
+                    <ImageIcon className="w-5 h-5 text-primary" />
+                    <span className="text-sm font-medium">dm_image_v1.jpg</span>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => setDmImageUploaded(false)}
+                  >
+                    <XCircle className="w-4 h-4 text-muted-foreground hover:text-destructive" />
+                  </Button>
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
               <label className="text-sm font-medium">宛名データ</label>
               <div className="p-4 border rounded-lg bg-muted/50">
                 <div className="flex items-center gap-2">
@@ -4272,6 +4547,10 @@ JASイベント管理チームです。
 - 投函予定日: 2024年12月20日
 - 対象件数: 約500件
 - 添付: 宛名データ（customer_addresses_202412.xlsx）
+${dmImageUploaded ? "- 添付: イメージ画像（dm_image_v1.jpg）" : ""}
+
+【納期】
+初稿: ${dmFirstDraftDate || "2024-12-10"}まで
 
 【注意事項】
 - 宛名データはパスワード保護されています

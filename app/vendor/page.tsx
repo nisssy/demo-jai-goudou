@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -87,48 +87,6 @@ export default function VendorView() {
 
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
 
-  // --- Confirmation Dialog States ---
-  const [showPosterConfirm, setShowPosterConfirm] = useState(false)
-  const [showDmConfirm, setShowDmConfirm] = useState(false)
-
-  // --- File Upload Logic ---
-  const posterFileInputRef = useRef<HTMLInputElement>(null)
-  const dmFileInputRef = useRef<HTMLInputElement>(null)
-
-  const handlePosterFileClick = () => {
-    posterFileInputRef.current?.click()
-  }
-
-  const handleDmFileClick = () => {
-    dmFileInputRef.current?.click()
-  }
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>, type: 'poster' | 'dm') => {
-    const file = event.target.files?.[0]
-    if (file) {
-      console.log(`${type} file selected:`, file.name)
-      toast({
-        title: "ファイル選択",
-        description: `${type === 'poster' ? 'ポスター' : 'DM'}のデザイン画像「${file.name}」を選択しました`,
-      })
-    }
-  }
-
-  const handlePosterSubmit = () => {
-    setShowPosterConfirm(false)
-    toast({
-      title: "送信完了",
-      description: "ポスターデザインを送信しました",
-    })
-  }
-
-  const handleDmSubmit = () => {
-    setShowDmConfirm(false)
-    toast({
-      title: "送信完了",
-      description: "DMデザインを送信しました",
-    })
-  }
 
   // --- UI Components ---
 
@@ -282,35 +240,23 @@ export default function VendorView() {
                   </div>
                 </div>
 
-                <div 
-                  className="border-2 border-dashed rounded-lg p-8 flex flex-col items-center justify-center text-center hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={handlePosterFileClick}
-                >
-                  <input 
-                    type="file" 
-                    ref={posterFileInputRef} 
-                    className="hidden" 
-                    accept="image/*,.pdf,.ai"
-                    onChange={(e) => handleFileChange(e, 'poster')}
-                  />
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                    <Upload className="w-6 h-6 text-primary" />
+                <div className="border border-border rounded-lg p-6 bg-card">
+                  <h3 className="font-semibold mb-4">デザインイメージ（発注元提供）</h3>
+                  <div className="border rounded-lg overflow-hidden bg-muted/20">
+                    <div className="aspect-[3/4] relative flex items-center justify-center bg-gray-100">
+                      <div className="text-center p-6">
+                        <ImageIcon className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-sm font-medium text-foreground">poster_sample_v1.jpg</p>
+                        <p className="text-xs text-muted-foreground mt-1">2024/10/15 10:00 アップロード済み</p>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-card border-t flex justify-end">
+                      <Button variant="outline" size="sm">
+                        <Eye className="w-4 h-4 mr-2" />
+                        プレビュー
+                      </Button>
+                    </div>
                   </div>
-                  <h3 className="font-semibold mb-1">デザインイメージをアップロード</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    ドラッグ＆ドロップ、またはクリックしてファイルを選択
-                  </p>
-                  <Button variant="outline" size="sm" onClick={(e) => {
-                    e.stopPropagation()
-                    handlePosterFileClick()
-                  }}>ファイルを選択</Button>
-                </div>
-
-                <div className="flex justify-end pt-2">
-                  <Button className="w-full sm:w-auto" onClick={() => setShowPosterConfirm(true)}>
-                    <Send className="w-4 h-4 mr-2" />
-                    送信する
-                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -336,35 +282,23 @@ export default function VendorView() {
                   </div>
                 </div>
 
-                <div 
-                  className="border-2 border-dashed rounded-lg p-8 flex flex-col items-center justify-center text-center hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={handleDmFileClick}
-                >
-                  <input 
-                    type="file" 
-                    ref={dmFileInputRef} 
-                    className="hidden" 
-                    accept="image/*,.pdf,.ai"
-                    onChange={(e) => handleFileChange(e, 'dm')}
-                  />
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                    <Upload className="w-6 h-6 text-primary" />
+                <div className="border border-border rounded-lg p-6 bg-card">
+                  <h3 className="font-semibold mb-4">デザインイメージ（発注元提供）</h3>
+                  <div className="border rounded-lg overflow-hidden bg-muted/20">
+                    <div className="aspect-video relative flex items-center justify-center bg-gray-100">
+                      <div className="text-center p-6">
+                        <ImageIcon className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                        <p className="text-sm font-medium text-foreground">dm_sample_v1.jpg</p>
+                        <p className="text-xs text-muted-foreground mt-1">2024/10/15 10:00 アップロード済み</p>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-card border-t flex justify-end">
+                      <Button variant="outline" size="sm">
+                        <Eye className="w-4 h-4 mr-2" />
+                        プレビュー
+                      </Button>
+                    </div>
                   </div>
-                  <h3 className="font-semibold mb-1">デザインイメージをアップロード</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    ドラッグ＆ドロップ、またはクリックしてファイルを選択
-                  </p>
-                  <Button variant="outline" size="sm" onClick={(e) => {
-                    e.stopPropagation()
-                    handleDmFileClick()
-                  }}>ファイルを選択</Button>
-                </div>
-
-                <div className="flex justify-end pt-2">
-                  <Button className="w-full sm:w-auto" onClick={() => setShowDmConfirm(true)}>
-                    <Send className="w-4 h-4 mr-2" />
-                    送信する
-                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -372,37 +306,6 @@ export default function VendorView() {
           </div>
         </ScrollArea>
       </div>
-
-      {/* Confirmation Dialogs */}
-      <Dialog open={showPosterConfirm} onOpenChange={setShowPosterConfirm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>ポスターデザインの送信</DialogTitle>
-            <DialogDescription>
-              アップロードしたデザインを送信しますか？この操作は取り消せません。
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPosterConfirm(false)}>キャンセル</Button>
-            <Button onClick={handlePosterSubmit}>送信</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showDmConfirm} onOpenChange={setShowDmConfirm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>DMデザインの送信</DialogTitle>
-            <DialogDescription>
-              アップロードしたデザインを送信しますか？この操作は取り消せません。
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDmConfirm(false)}>キャンセル</Button>
-            <Button onClick={handleDmSubmit}>送信</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Toaster />
     </div>
