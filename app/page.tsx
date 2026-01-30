@@ -55,8 +55,106 @@ import { cn } from "@/lib/utils"
 import { CommonSidebar } from "@/components/common-sidebar"
 import { ProjectStepper } from "@/components/project-stepper"
 import { Project, HallQuote, QuoteItem, Employee, Company, Hall } from "@/types"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 type Screen = "list" | "proposal" | "production" | "lottery" | "accounting"
+type PrizeItem = { rank: string; name: string; quantity: string }
+
+// 事前定義の景品セット（選択後に手動編集可能）
+const PRIZE_SETS: { id: string; label: string; items: PrizeItem[] }[] = [
+  {
+    id: "newyear",
+    label: "年末大抽選会セット",
+    items: [
+      { rank: "A賞", name: "クオカード 10,000円", quantity: "1" },
+      { rank: "B賞", name: "商品券 5,000円", quantity: "3" },
+      { rank: "C賞", name: "粗品セット", quantity: "50" },
+    ],
+  },
+  {
+    id: "spring",
+    label: "春のキャンペーンセット",
+    items: [
+      { rank: "1等", name: "旅行券 30,000円", quantity: "1" },
+      { rank: "2等", name: "ギフトカード 5,000円", quantity: "5" },
+      { rank: "3等", name: "オリジナルグッズ", quantity: "100" },
+    ],
+  },
+  {
+    id: "gw",
+    label: "ゴールデンウィークセット",
+    items: [
+      { rank: "特賞", name: "宿泊券 20,000円分", quantity: "2" },
+      { rank: "A賞", name: "レストラン券 3,000円", quantity: "10" },
+      { rank: "B賞", name: "映画チケット", quantity: "30" },
+      { rank: "参加賞", name: "ノベルティ", quantity: "500" },
+    ],
+  },
+  {
+    id: "summer",
+    label: "夏祭りセット",
+    items: [
+      { rank: "大賞", name: "ビール券 10,000円分", quantity: "1" },
+      { rank: "A賞", name: "クオカード 3,000円", quantity: "5" },
+      { rank: "B賞", name: "ドリンク券", quantity: "100" },
+    ],
+  },
+  {
+    id: "respect",
+    label: "敬老の日セット",
+    items: [
+      { rank: "特別賞", name: "健康食品ギフト", quantity: "3" },
+      { rank: "A賞", name: "商品券 2,000円", quantity: "20" },
+      { rank: "参加賞", name: "お菓子詰め合わせ", quantity: "200" },
+    ],
+  },
+  {
+    id: "halloween",
+    label: "ハロウィンセット",
+    items: [
+      { rank: "1等", name: "お菓子詰め合わせ 5,000円", quantity: "2" },
+      { rank: "2等", name: "ハロウィングッズ", quantity: "20" },
+      { rank: "参加賞", name: "キャンディ", quantity: "300" },
+    ],
+  },
+  {
+    id: "christmas",
+    label: "クリスマスセット",
+    items: [
+      { rank: "特賞", name: "ギフトカード 10,000円", quantity: "1" },
+      { rank: "A賞", name: "スイーツギフト", quantity: "10" },
+      { rank: "B賞", name: "クリスマスグッズ", quantity: "50" },
+    ],
+  },
+  {
+    id: "newcustomer",
+    label: "新規顧客獲得セット",
+    items: [
+      { rank: "A賞", name: "クオカード 3,000円", quantity: "5" },
+      { rank: "B賞", name: "粗品A", quantity: "30" },
+      { rank: "C賞", name: "粗品B", quantity: "100" },
+    ],
+  },
+  {
+    id: "repeat",
+    label: "リピーター感謝セット",
+    items: [
+      { rank: "感謝賞", name: "商品券 1,000円", quantity: "20" },
+      { rank: "特別賞", name: "限定グッズ", quantity: "50" },
+    ],
+  },
+  {
+    id: "simple",
+    label: "シンプル1賞セット",
+    items: [{ rank: "A賞", name: "クオカード 10,000円", quantity: "1" }],
+  },
+]
 type Role = "sales" | "admin"
 
 export default function JASEventManager() {
@@ -206,8 +304,8 @@ export default function JASEventManager() {
 
   // Screen 1: Proposal State
   const [companyName, setCompanyName] = useState("")
-  const [hallNames, setHallNames] = useState<string[]>(["", ""])
-  const [hallCompanyIds, setHallCompanyIds] = useState<string[]>(["", ""])
+  const [hallNames, setHallNames] = useState<string[]>([""])
+  const [hallCompanyIds, setHallCompanyIds] = useState<string[]>([""])
   const [hallOpens, setHallOpens] = useState<boolean[]>([])
   const [companyOpens, setCompanyOpens] = useState<boolean[]>([])
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("")
@@ -216,9 +314,10 @@ export default function JASEventManager() {
   const [eventEndDate, setEventEndDate] = useState("")
   const [area, setArea] = useState("")
   const [eventType, setEventType] = useState("")
-  const [prizeInfo, setPrizeInfo] = useState<{ rank: string; name: string; quantity: string }[]>([
+  const [prizeInfo, setPrizeInfo] = useState<PrizeItem[]>([
     { rank: "A賞", name: "", quantity: "" }
   ])
+  const [selectedPrizeSetId, setSelectedPrizeSetId] = useState<string>("")
   const [dmOrderCount, setDmOrderCount] = useState("")
   const [syncLoading, setSyncLoading] = useState(false)
 
@@ -281,6 +380,10 @@ export default function JASEventManager() {
 
   const [showWinnerModal, setShowWinnerModal] = useState(false)
   const [showValidationModal, setShowValidationModal] = useState(false)
+  const [showNotificationOrderModal, setShowNotificationOrderModal] = useState(false)
+  const [notificationOrderGenerated, setNotificationOrderGenerated] = useState(false)
+  const [notificationOrderSent, setNotificationOrderSent] = useState(false)
+  const [showNotificationSendOrderModal, setShowNotificationSendOrderModal] = useState(false)
   const [showPrizeOrderModal, setShowPrizeOrderModal] = useState(false)
   const [showSendOrderModal, setShowSendOrderModal] = useState(false)
   // const [showLetterCheckModal, setShowLetterCheckModal] = useState(false) // This is already defined below
@@ -295,8 +398,6 @@ export default function JASEventManager() {
   const [prizeOrderGenerated, setPrizeOrderGenerated] = useState(false)
   const [prizeOrderSent, setPrizeOrderSent] = useState(false)
   const [prizeDeliveryDate, setPrizeDeliveryDate] = useState("")
-  // const [selectedPrizeVendor, setSelectedPrizeVendor] = useState("vendorC") // Removed in favor of per-prize selection
-  const [prizeVendorSelections, setPrizeVendorSelections] = useState<{ [key: string]: { prizeVendor: string, deliveryVendor: string } }>({})
   const [deliveryAlerts, setDeliveryAlerts] = useState<Array<{ project: string; days: number }>>([])
   const [deliveryFileUploaded, setDeliveryFileUploaded] = useState(false)
   const [showDeliveryData, setShowDeliveryData] = useState(false)
@@ -374,7 +475,7 @@ export default function JASEventManager() {
   const handleSelectProject = (project: Project) => {
     setSelectedProject(project)
     setCompanyName(project.companyName)
-    const projectHallNames = project.hallNames.length >= 2 ? project.hallNames : [...project.hallNames, ...Array(2 - project.hallNames.length).fill("")]
+    const projectHallNames = project.hallNames.length >= 1 ? project.hallNames : [""]
     setHallNames(projectHallNames)
     // 各ホールの法人IDを設定
     const projectHallCompanyIds = projectHallNames.map((hallName) => {
@@ -480,8 +581,8 @@ export default function JASEventManager() {
   const handleNewProject = () => {
     setSelectedProject(null)
     setCompanyName("")
-    setHallNames(["", ""])
-    setHallCompanyIds(["", ""])
+    setHallNames([""])
+    setHallCompanyIds([""])
     setHallOpens([])
     setCompanyOpens([])
     setSelectedCompanyId("")
@@ -522,10 +623,10 @@ export default function JASEventManager() {
 
   const handleGenerateQuote = () => {
     const validHallNames = hallNames.filter((name) => name.trim() !== "")
-    if (validHallNames.length < 2 || !eventStartDate || !eventEndDate) {
+    if (validHallNames.length < 1 || !eventStartDate || !eventEndDate) {
       toast({
         title: "⚠️ 入力エラー",
-        description: "基本情報を入力してください（ホールは最低2件必要です）",
+        description: "基本情報を入力してください",
         variant: "destructive",
       })
       return
@@ -898,6 +999,19 @@ export default function JASEventManager() {
   }
 
   // Enhanced winner list upload with AI validation
+  const handleGenerateNotificationOrder = () => {
+    setShowNotificationOrderModal(true)
+  }
+
+  const confirmNotificationOrderGeneration = () => {
+    setShowNotificationOrderModal(false)
+    setNotificationOrderGenerated(true)
+    toast({
+      title: "当選者通知発注データ生成完了",
+      description: "winner_notification_20241225.xlsx が生成されました",
+    })
+  }
+
   const handleGeneratePrizeOrder = () => {
     setShowPrizeOrderModal(true)
   }
@@ -908,6 +1022,19 @@ export default function JASEventManager() {
     toast({
       title: "発注データ生成完了",
       description: "prize_order_20241225.xlsx が生成されました",
+    })
+  }
+
+  const handleSendNotificationOrder = () => {
+    setShowNotificationSendOrderModal(true)
+  }
+
+  const confirmSendNotificationOrder = () => {
+    setShowNotificationSendOrderModal(false)
+    setNotificationOrderSent(true)
+    toast({
+      title: "当選者通知依頼メール送信完了",
+      description: "業者へ当選者通知の依頼メールを送信しました（パスワードメールも自動送信）",
     })
   }
 
@@ -1134,7 +1261,7 @@ export default function JASEventManager() {
                 <CardContent className="space-y-4">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <Label>ホール名（最低2件必要）</Label>
+                      <Label>ホール名</Label>
                     </div>
                     {hallNames.map((hallName, index) => {
                       const hallCompanyId = hallCompanyIds[index] || ""
@@ -1391,7 +1518,7 @@ export default function JASEventManager() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="event-type">イベント種類</Label>
+                    <Label htmlFor="event-type">商材名</Label>
                     <Input 
                       id="event-type" 
                       placeholder="例: 年末大抽選会" 
@@ -1401,6 +1528,30 @@ export default function JASEventManager() {
                   </div>
 
                   <div className="space-y-4 pt-4 border-t">
+                    <div className="space-y-2">
+                      <Label>景品セットを選択</Label>
+                      <Select
+                        value={selectedPrizeSetId}
+                        onValueChange={(value) => {
+                          const set = PRIZE_SETS.find((s) => s.id === value)
+                          if (set) {
+                            setSelectedPrizeSetId(value)
+                            setPrizeInfo(set.items.map((p) => ({ ...p })))
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-full max-w-xs">
+                          <SelectValue placeholder="景品セットを選ぶ（選択後に編集可能）" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PRIZE_SETS.map((set) => (
+                            <SelectItem key={set.id} value={set.id}>
+                              {set.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div className="flex items-center justify-between">
                       <Label>景品情報</Label>
                       <Button
@@ -2606,7 +2757,49 @@ export default function JASEventManager() {
                 </CardContent>
               </Card>
 
-              {/* Always visible cards */}
+              {/* 当選者通知発注データ（景品発注データの前に配置） */}
+              <Card className="border-2 border-primary/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Mail className="w-5 h-5 text-primary" />
+                    当選者通知発注データ
+                  </CardTitle>
+                  <CardDescription>当選者リストから通知用発注フォーマット（はがき・DM等）へ自動変換</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {!notificationOrderGenerated ? (
+                    <Button
+                      onClick={handleGenerateNotificationOrder}
+                      className="w-full bg-gradient-to-r from-primary to-blue-600"
+                      disabled={!winnerListValidated}
+                    >
+                      <Mail className="w-4 h-4 mr-2" />
+                      通知データ自動生成
+                    </Button>
+                  ) : (
+                    <>
+                      <Alert className="border-primary bg-primary/10">
+                        <CheckCircle2 className="h-4 w-4 text-primary" />
+                        <AlertDescription>
+                          <strong>✅ 当選者通知発注データ生成完了</strong>
+                          <br />
+                          <span className="text-sm">winner_notification_20241225.xlsx が生成されました</span>
+                        </AlertDescription>
+                      </Alert>
+                      <div className="rounded-lg border border-border p-4 space-y-2">
+                        <h4 className="font-semibold text-sm">通知データプレビュー</h4>
+                        <div className="text-sm text-muted-foreground space-y-1">
+                          <p>• 当選者数: {demoWinnerData.length}名</p>
+                          <p>• 出力形式: はがき印刷用・DM発送用</p>
+                          <p>• 項目: 氏名、住所、景品名、当選案内文</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* 景品発注データ生成 */}
               <Card className="border-2 border-primary/20">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -2649,6 +2842,60 @@ export default function JASEventManager() {
                 </CardContent>
               </Card>
 
+              {/* 当選者通知発注処理（景品発注処理の手前に配置） */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Mail className="w-5 h-5" />
+                    当選者通知発注処理
+                  </CardTitle>
+                  <CardDescription>当選者通知を業者に依頼するためのメール送信（はがき印刷業者へ発注書を送信）</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {!notificationOrderSent ? (
+                    <div className="space-y-3">
+                      {notificationOrderGenerated ? (
+                        <>
+                          <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                            <p className="text-sm">当選者通知を業者に依頼するため、当選者通知発注データ（winner_notification_20241225.xlsx）をはがき印刷業者へメール送信します。</p>
+                          </div>
+                          <Button onClick={handleSendNotificationOrder} className="w-full" disabled={!notificationOrderGenerated}>
+                            <Send className="w-4 h-4 mr-2" />
+                            当選者通知依頼メールを送信（PDF + データ添付）
+                          </Button>
+                          <p className="text-xs text-muted-foreground text-center">
+                            ※ パスワード保護されたファイルとパスワードメールが自動送信されます
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">当選者通知発注データの生成が完了すると、業者への依頼メール送信が可能になります</p>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <Alert className="border-primary bg-primary/10">
+                        <CheckCircle2 className="h-4 w-4 text-primary" />
+                        <AlertDescription>
+                          <strong>✅ 当選者通知依頼メール送信完了</strong>
+                          <br />
+                          <span className="text-sm">業者へ当選者通知の依頼メールを送信しました（パスワードメールも自動送信）</span>
+                        </AlertDescription>
+                      </Alert>
+                      <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">送信日時:</span>
+                          <span className="font-medium">2024-12-20 10:00</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">送信先:</span>
+                          <span className="font-medium">はがき印刷業者（当選者通知を依頼）</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -2670,54 +2917,6 @@ export default function JASEventManager() {
                               onChange={(e) => setPrizeDeliveryDate(e.target.value)}
                             />
                           </div>
-                          
-                          {prizeInfo.length > 0 ? (
-                            <div className="space-y-4 pt-2">
-                              <Label>各賞ごとの業者指定</Label>
-                              {prizeInfo.map((prize, idx) => (
-                                <div key={idx} className="p-4 border rounded-lg bg-background space-y-3">
-                                   <div className="font-medium flex justify-between">
-                                     <span>{prize.rank}: {prize.name}</span>
-                                     <span className="text-sm text-muted-foreground">{prize.quantity}個</span>
-                                   </div>
-                                   <div className="grid grid-cols-2 gap-4">
-                                      <div className="space-y-1">
-                                         <Label className="text-xs text-muted-foreground">景品業者</Label>
-                                         <select 
-                                           className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                           value={prizeVendorSelections[idx]?.prizeVendor || ""}
-                                           onChange={(e) => setPrizeVendorSelections({
-                                             ...prizeVendorSelections,
-                                             [idx]: { ...(prizeVendorSelections[idx] || {}), prizeVendor: e.target.value }
-                                           })}
-                                         >
-                                            <option value="">選択してください</option>
-                                            <option value="vendorC">景品調達先C</option>
-                                            <option value="vendorD">景品調達先D</option>
-                                         </select>
-                                      </div>
-                                      <div className="space-y-1">
-                                         <Label className="text-xs text-muted-foreground">配送業者</Label>
-                                         <select 
-                                           className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                           value={prizeVendorSelections[idx]?.deliveryVendor || ""}
-                                           onChange={(e) => setPrizeVendorSelections({
-                                             ...prizeVendorSelections,
-                                             [idx]: { ...(prizeVendorSelections[idx] || {}), deliveryVendor: e.target.value }
-                                           })}
-                                         >
-                                            <option value="">選択してください</option>
-                                            <option value="deliveryA">配送業者A</option>
-                                            <option value="deliveryB">配送業者B</option>
-                                         </select>
-                                      </div>
-                                   </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">景品情報が設定されていません</p>
-                          )}
                         </div>
                       </div>
                       <Button onClick={handleSendPrizeOrder} className="w-full">
@@ -4073,6 +4272,44 @@ export default function JASEventManager() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={showNotificationOrderModal} onOpenChange={setShowNotificationOrderModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>当選者通知発注データ生成</DialogTitle>
+            <DialogDescription>当選者リストから通知用発注データ（はがき・DM等）を自動生成します</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border p-4 space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">当選者数:</span>
+                <span className="font-medium">{demoWinnerData.length}名</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">出力形式:</span>
+                <span className="font-medium">はがき印刷用・DM発送用</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">含まれる項目:</span>
+                <span className="font-medium">氏名、住所、景品名、当選案内文</span>
+              </div>
+            </div>
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>当選者通知データを生成すると、当選者リストから通知用フォーマットへ自動変換されます。</AlertDescription>
+            </Alert>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNotificationOrderModal(false)}>
+              キャンセル
+            </Button>
+            <Button onClick={confirmNotificationOrderGeneration} className="bg-gradient-to-r from-primary to-blue-600">
+              <Mail className="w-4 h-4 mr-2" />
+              データ生成を実行
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showPrizeOrderModal} onOpenChange={setShowPrizeOrderModal}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -4111,6 +4348,47 @@ export default function JASEventManager() {
             <Button onClick={confirmPrizeOrderGeneration} className="bg-gradient-to-r from-primary to-blue-600">
               <Sparkles className="w-4 h-4 mr-2" />
               データ生成を実行
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showNotificationSendOrderModal} onOpenChange={setShowNotificationSendOrderModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>当選者通知依頼メール送信</DialogTitle>
+            <DialogDescription>当選者通知を業者に依頼するため、はがき印刷業者へ発注書をメール送信します</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border p-4 space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">送信先業者:</span>
+                <span className="font-medium">はがき印刷業者</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">メールアドレス:</span>
+                <span className="font-medium">notification@print-vendor.jp</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">添付ファイル:</span>
+                <span className="font-medium">winner_notification_20241225.xlsx (パスワード保護)</span>
+              </div>
+            </div>
+            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+              <p className="text-sm font-medium">自動送信される内容:</p>
+              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                <li>発注書PDF + データファイル（パスワード保護）</li>
+                <li>パスワード通知メール（別送）</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNotificationSendOrderModal(false)}>
+              キャンセル
+            </Button>
+            <Button onClick={confirmSendNotificationOrder}>
+              <Send className="w-4 h-4 mr-2" />
+              メール送信を実行
             </Button>
           </DialogFooter>
         </DialogContent>
