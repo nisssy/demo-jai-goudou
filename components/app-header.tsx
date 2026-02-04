@@ -38,6 +38,15 @@ export function AppHeader() {
           >
             景品業者画面
           </Link>
+          <Link
+            href="/admin"
+            className={cn(
+              "transition-colors hover:text-primary",
+              pathname === "/admin" ? "text-foreground font-bold" : "text-muted-foreground"
+            )}
+          >
+            事務管理課画面
+          </Link>
         </nav>
       </div>
     </header>

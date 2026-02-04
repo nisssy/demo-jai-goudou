@@ -1,0 +1,112 @@
+---
+description: プロジェクト開発ルール
+globs: 
+alwaysApply: true
+---
+
+# アーキテクチャ
+
+## フロントエンドアーキテクチャスタイル
+
+本プロジェクトでは、AI生成コードのレビュー負荷を下げ、人間の修正コストを下げることを最優先にします。
+以下のルールを厳守してください。
+
+### 1. ファイル構成
+
+1つの機能コンポーネント(例: `UserProfile`)を作成する際は、必ず以下の3つのファイルセットの構成で作成すること。
+
+1. View (UserProfile.view.tsx)
+2. Container (UserProfile.container.tsx):
+3. Hook (useUserProfile.ts):
+
+### 2. Component Granularity & Composition (粒度と合成)
+
+変更時の影響範囲を限定するため、**「巨大なViewを作らず、小さなViewを組み合わせる」**アプローチ（Bottom-Up Composition）を厳守すること。
+
+- **The "LEGO" Rule (レゴブロックの原則):**
+  - Viewコンポーネントは、HTMLタグを羅列するのではなく、より小さなサブコンポーネントを配置する場所として定義する。
+  - **NG (Monolithic):** 1つのファイルに Header, Body, Footer, Sidebar の全てのJSXを書く。
+  - **OK (Composed):** `<Header />`, `<Sidebar />`, `<UserBody />` を配置するだけにする。
+
+- **Extraction Threshold (抽出基準):**
+  - 1つのコンポーネント内で、意味のあるまとまり（例: カード、リストアイテム、フォームのセクション）があれば、即座に別ファイルへ切り出す。
+  - これにより、「カードのデザイン修正」が「親コンポーネントの変更」として扱われるのを防ぐ。
+
+- **Prop Drilling vs Composition:**
+  - バケツリレー（Prop Drilling）が深くなる場合は、親コンポーネントで具体的な子コンポーネントを `children` として渡すパターン（Slot Pattern）を検討する。
+
+### 3. View
+
+**ファイル:** `*.view.tsx`
+
+**目的:** UIを純粋関数化し、Storybook等でのテストを容易にする。
+
+- **Hooks Prohibition (Hooks禁止):**
+  - `useEffect`, `useState` はもちろん、カスタムフックを含め、**一切のHooksの使用を禁止**する。
+  - 全ての動的データとイベントハンドラは `Props` として受け取ること。
+
+- **No Logic (ロジック禁止):**
+  - 条件分岐やmap展開以外の複雑な計算を行わないこと。
+
+**Example:**
+```tsx
+interface UserProfileViewProps {
+  user: User;
+  isLoading: boolean;
+  onUpdate: (name: string) => void;
+}
+
+export const UserProfileView = ({ user, isLoading, onUpdate }: UserProfileViewProps) => {
+  return (
+    <div>
+      <h1>{user.name}</h1>
+      <button onClick={() => onUpdate("New Name")}>Update</button>
+    </div>
+  );
+};
+```
+
+### 4. Container
+
+**ファイル:** *.container.tsx
+
+**目的:** Viewに依存性を注入し、Viewを特定のロジック実装から切り離す。
+
+- **Responsibility (責務):**
+  - Custom Hook (useUserProfile) を呼び出し、その返り値を View の Props にマッピングする。
+  - コンポーネントの外部に公開するのは、原則としてこの Container である。
+
+- **No UI (UI記述禁止):**
+  - Container内で `<div>` や class などのUI要素を記述することを禁止する。
+  - Containerは View コンポーネントを返すことのみに集中する。
+
+**Example:**
+```tsx
+import { useUserProfile } from '../hooks/useUserProfile';
+import { UserProfileView } from './UserProfile.view';
+
+export const UserProfileContainer = () => {
+  // Logicの注入
+  const { user, isLoading, updateUser } = useUserProfile();
+
+  // Viewへの配線 (Wiring)
+  return (
+    <UserProfileView 
+      user={user} 
+      isLoading={isLoading} 
+      onUpdate={updateUser} 
+    />
+  );
+};
+```
+
+### 5. Hook
+
+**ファイル:** hooks/use[Feature].tsx
+
+- すべての状態管理、API通信、バリデーションロジックはここに記述する。
+- Viewが必要とするデータと関数をオブジェクトとして返す。
+
+### 5. 再利用可能なcomponent設計
+
+各画面を構成するcomponentはなるべく細かく定義したものを組み合わせる形で構成する。
