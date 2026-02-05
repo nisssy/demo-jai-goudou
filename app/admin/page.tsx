@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useCallback } from "react"
+import { Suspense, useEffect, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,7 +9,7 @@ import { Project } from "@/types"
 import { Calendar, ChevronLeft, ArrowRight } from "lucide-react"
 import { LotteryAdminContent } from "@/components/screens/lottery-admin-content"
 
-export default function AdminPage() {
+function AdminPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const projectId = searchParams.get("projectId")
@@ -143,5 +143,13 @@ export default function AdminPage() {
         </main>
       </div>
     </div>
+  )
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-background">読み込み中...</div>}>
+      <AdminPageContent />
+    </Suspense>
   )
 }
