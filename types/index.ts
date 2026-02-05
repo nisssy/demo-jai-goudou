@@ -85,14 +85,25 @@ export type Project = {
   prizeOrderGeneratedAt?: string
   /** 事務管理課: クオカード書簡チェック済み日時（ISO） */
   quoCardLetterCheckedAt?: string
-  /** 景品業者ごとに入力された配送情報（景品業者画面で送信→事務管理課で参照） */
+  /** 当選者リスト（事務管理課で検証済みのとき保存。景品業者画面で配送情報を当選者ごとに入力するために使用） */
+  winnerList?: { id: string; name: string; address?: string; phone?: string; prize?: string }[]
+  /** 景品業者ごとに入力された配送情報（景品業者画面で送信→事務管理課で参照）。当選者一人ひとり分の配送情報を deliveries に格納 */
   prizeDeliveryInfoByVendor?: {
     vendorId: string
     vendorName: string
     deliveredAt: string
+    /** 従来形式（1業者1件）の場合は未使用 */
     carrierName?: string
     trackingNumber?: string
     shippedAt?: string
+    /** 当選者ごとの配送情報（景品業者画面で一人ずつ入力） */
+    deliveries?: {
+      winnerId: string
+      winnerName?: string
+      carrierName?: string
+      trackingNumber?: string
+      shippedAt?: string
+    }[]
   }[]
 }
 

@@ -1573,6 +1573,67 @@ function SalesPageContent() {
                                       <div className="text-sm font-medium text-slate-700">{salesPersonName}</div>
                                     </div>
                                   </div>
+                                  {(() => {
+                                    type ProdStatus = "未依頼" | "初稿待ち" | "修正依頼済み" | "修正待ち" | "完了"
+                                    const getDesignStatus = (type: "poster" | "dm" | "winner-list"): ProdStatus => {
+                                      const requests = getDesignRequestsByProjectAndType(project.id, type)
+                                      const sorted = [...requests].sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
+                                      const latest = sorted[0]
+                                      if (!latest) return "未依頼"
+                                      if (latest.status === "requested") return "初稿待ち"
+                                      if (latest.status === "uploaded") {
+                                        const comments = latest.comments
+                                        if (comments.length === 0) return "修正待ち"
+                                        const last = comments[comments.length - 1]
+                                        if (last.role === "SalesInsight") return "修正依頼済み"
+                                        return "完了"
+                                      }
+                                      return "完了"
+                                    }
+                                    const posterStatus = getDesignStatus("poster")
+                                    const dmStatus = project.dmMailing === "yes" ? getDesignStatus("dm") : null
+                                    const winnerListStatus = getDesignStatus("winner-list")
+                                    const hasPrizeOrder = !!(project.prizeOrderRequestedAt || (project.prizeOrdersByVendor && project.prizeOrdersByVendor.length > 0))
+                                    const prizeDeliveryStatus = !hasPrizeOrder
+                                      ? "未発注"
+                                      : (project.prizeDeliveryInfoByVendor?.length ?? 0) > 0
+                                        ? "配送報告済み"
+                                        : "配送待ち"
+                                    const variant = (s: string) =>
+                                      s === "完了" || s === "配送報告済み" ? "default" : s === "未依頼" || s === "未発注" ? "outline" : "secondary"
+                                    return (
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 mt-3 border-t border-slate-100">
+                                        <div className="flex flex-col gap-1">
+                                          <span className="text-xs text-slate-500">ポスター制作状況</span>
+                                          <Badge variant={variant(posterStatus)} className="text-xs w-fit">
+                                            {posterStatus}
+                                          </Badge>
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                          <span className="text-xs text-slate-500">DM制作状況</span>
+                                          {dmStatus !== null ? (
+                                            <Badge variant={variant(dmStatus)} className="text-xs w-fit">
+                                              {dmStatus}
+                                            </Badge>
+                                          ) : (
+                                            <span className="text-xs text-slate-400">ー</span>
+                                          )}
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                          <span className="text-xs text-slate-500">当選通知書作成状況</span>
+                                          <Badge variant={variant(winnerListStatus)} className="text-xs w-fit">
+                                            {winnerListStatus}
+                                          </Badge>
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                          <span className="text-xs text-slate-500">景品配送状況</span>
+                                          <Badge variant={variant(prizeDeliveryStatus)} className="text-xs w-fit">
+                                            {prizeDeliveryStatus}
+                                          </Badge>
+                                        </div>
+                                      </div>
+                                    )
+                                  })()}
                                 </div>
                               </div>
                             </div>

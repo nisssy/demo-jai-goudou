@@ -288,7 +288,14 @@ export function LotteryAdminContent({ project }: LotteryAdminContentProps) {
                         setFileUploaded(true)
                         setShowWinnerListError(false)
                         setWinnerListValidated(true)
-                        updateProject(project.id, { winnerListUploadedAt: now, winnerListValidatedAt: now })
+                        const winnerList = demoWinnerData.map((w) => ({
+                          id: String(w.id),
+                          name: w.name,
+                          address: w.address,
+                          phone: w.phone,
+                          prize: w.prize,
+                        }))
+                        updateProject(project.id, { winnerListUploadedAt: now, winnerListValidatedAt: now, winnerList })
                         toast({ title: "同期完了", description: "PSPから正常なデータを取得しました" })
                       }}
                       className="bg-primary w-full"
@@ -325,7 +332,14 @@ export function LotteryAdminContent({ project }: LotteryAdminContentProps) {
                       setFileUploaded(true)
                       setShowWinnerListError(false)
                       setWinnerListValidated(true)
-                      updateProject(project.id, { winnerListUploadedAt: now, winnerListValidatedAt: now })
+                      const winnerList = demoWinnerData.map((w) => ({
+                        id: String(w.id),
+                        name: w.name,
+                        address: w.address,
+                        phone: w.phone,
+                        prize: w.prize,
+                      }))
+                      updateProject(project.id, { winnerListUploadedAt: now, winnerListValidatedAt: now, winnerList })
                       toast({ title: "アップロード完了", description: "ファイルが正常にアップロードされました" })
                     }}
                   >
@@ -349,33 +363,39 @@ export function LotteryAdminContent({ project }: LotteryAdminContentProps) {
                     setFileUploaded(false)
                     setWinnerListValidated(false)
                     setShowWinnerListError(false)
-                    updateProject(project.id, { winnerListUploadedAt: undefined, winnerListValidatedAt: undefined })
+                    updateProject(project.id, {
+                      winnerListUploadedAt: undefined,
+                      winnerListValidatedAt: undefined,
+                      winnerList: undefined,
+                    })
                   }}
                 >
                   リセット
                 </Button>
               </div>
-              <div className="border rounded-md">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>名前</TableHead>
-                      <TableHead>住所</TableHead>
-                      <TableHead>電話番号</TableHead>
-                      <TableHead>景品</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {demoWinnerData.map((winner) => (
-                      <TableRow key={winner.id}>
-                        <TableCell>{winner.name}</TableCell>
-                        <TableCell>{winner.address}</TableCell>
-                        <TableCell>{winner.phone}</TableCell>
-                        <TableCell>{winner.prize}</TableCell>
+              <div className="border rounded-md overflow-hidden">
+                <div className="h-[440px] overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>名前</TableHead>
+                        <TableHead>住所</TableHead>
+                        <TableHead>電話番号</TableHead>
+                        <TableHead>景品</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {demoWinnerData.map((winner) => (
+                        <TableRow key={winner.id}>
+                          <TableCell>{winner.name}</TableCell>
+                          <TableCell>{winner.address}</TableCell>
+                          <TableCell>{winner.phone}</TableCell>
+                          <TableCell>{winner.prize}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
               {showWinnerListError && (
                 <Alert variant="destructive">
@@ -809,7 +829,10 @@ export function LotteryAdminContent({ project }: LotteryAdminContentProps) {
                       <div className="min-w-0">
                         <p className="font-medium">{d.vendorName}</p>
                         <p className="text-sm text-muted-foreground">
-                          配送会社: {d.carrierName || "ー"} / 追跡番号: {d.trackingNumber || "ー"} / 発送日: {d.shippedAt ? new Date(d.shippedAt).toLocaleDateString("ja") : "ー"}
+                          {d.deliveries && d.deliveries.length > 0
+                            ? `当選者ごと ${d.deliveries.length}件（配送会社・追跡番号・発送日）`
+                            : `配送会社: ${d.carrierName || "ー"} / 追跡番号: ${d.trackingNumber || "ー"} / 発送日: ${d.shippedAt ? new Date(d.shippedAt).toLocaleDateString("ja") : "ー"}`
+                          }
                         </p>
                         <p className="text-xs text-muted-foreground">入力日時: {new Date(d.deliveredAt).toLocaleString("ja")}</p>
                       </div>
@@ -1221,39 +1244,95 @@ export function LotteryAdminContent({ project }: LotteryAdminContentProps) {
             <DialogTitle>配送情報プレビュー</DialogTitle>
             <DialogDescription>
               {project.prizeDeliveryInfoByVendor && project.prizeDeliveryInfoByVendor.length > 0
-                ? "景品業者から入力された配送情報です"
+                ? "依頼した当選者リストの順で、景品業者から入力された配送情報を表示します"
                 : "景品業者が入力した配送情報を表示します"}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 min-h-0 overflow-auto">
             {project.prizeDeliveryInfoByVendor && project.prizeDeliveryInfoByVendor.length > 0 ? (
               <div className="space-y-6">
-                {project.prizeDeliveryInfoByVendor.map((d) => (
-                  <div key={d.vendorId} className="rounded-lg border bg-muted/20 p-4">
-                    <h3 className="font-semibold mb-3 flex items-center gap-2">
-                      <Truck className="w-4 h-4" />
-                      {d.vendorName}
-                    </h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">配送会社名</span>
-                        <p className="font-medium">{d.carrierName || "ー"}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">追跡番号</span>
-                        <p className="font-medium font-mono">{d.trackingNumber || "ー"}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">発送日</span>
-                        <p className="font-medium">{d.shippedAt ? new Date(d.shippedAt).toLocaleDateString("ja") : "ー"}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">入力日時</span>
-                        <p className="font-medium">{new Date(d.deliveredAt).toLocaleString("ja")}</p>
-                      </div>
+                {project.prizeDeliveryInfoByVendor.map((d) => {
+                  const winnerList = project.winnerList ?? []
+                  const deliveryByWinnerId = new Map(
+                    (d.deliveries ?? []).map((row) => [row.winnerId, row])
+                  )
+                  const rows =
+                    winnerList.length > 0
+                      ? winnerList.map((w, idx) => ({
+                          key: w.id,
+                          no: idx + 1,
+                          winnerName: w.name,
+                          prize: w.prize ?? "ー",
+                          delivery: deliveryByWinnerId.get(w.id),
+                        }))
+                      : (d.deliveries ?? []).map((row, i) => ({
+                          key: row.winnerId ?? `del-${i}`,
+                          no: i + 1,
+                          winnerName: row.winnerName ?? "ー",
+                          prize: "ー",
+                          delivery: row,
+                        }))
+                  return (
+                    <div key={d.vendorId} className="rounded-lg border bg-muted/20 p-4">
+                      <h3 className="font-semibold mb-3 flex items-center gap-2">
+                        <Truck className="w-4 h-4" />
+                        {d.vendorName}
+                      </h3>
+                      {rows.length > 0 ? (
+                        <div className="border rounded-md overflow-hidden">
+                          <div className="h-[440px] overflow-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="w-12">No.</TableHead>
+                                  <TableHead>当選者名</TableHead>
+                                  <TableHead>景品</TableHead>
+                                  <TableHead>配送会社名</TableHead>
+                                  <TableHead>追跡番号</TableHead>
+                                  <TableHead>発送日</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {rows.map((row) => (
+                                  <TableRow key={row.key}>
+                                    <TableCell className="text-muted-foreground">{row.no}</TableCell>
+                                    <TableCell className="font-medium">{row.winnerName}</TableCell>
+                                    <TableCell className="text-muted-foreground">{row.prize}</TableCell>
+                                    <TableCell>{row.delivery?.carrierName ?? "ー"}</TableCell>
+                                    <TableCell className="font-mono text-sm">{row.delivery?.trackingNumber ?? "ー"}</TableCell>
+                                    <TableCell>{row.delivery?.shippedAt ? new Date(row.delivery.shippedAt).toLocaleDateString("ja") : "ー"}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">配送会社名</span>
+                            <p className="font-medium">{d.carrierName || "ー"}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">追跡番号</span>
+                            <p className="font-medium font-mono">{d.trackingNumber || "ー"}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">発送日</span>
+                            <p className="font-medium">{d.shippedAt ? new Date(d.shippedAt).toLocaleDateString("ja") : "ー"}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">入力日時</span>
+                            <p className="font-medium">{new Date(d.deliveredAt).toLocaleString("ja")}</p>
+                          </div>
+                        </div>
+                      )}
+                      {rows.length > 0 && (
+                        <p className="text-xs text-muted-foreground mt-2">入力日時: {new Date(d.deliveredAt).toLocaleString("ja")}</p>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <div className="bg-gray-100 p-4 rounded-md border min-h-[200px] flex items-center justify-center">

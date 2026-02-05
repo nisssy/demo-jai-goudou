@@ -44,6 +44,17 @@ const mockCsvData = [
   { No: 5, 品名: "お米券", 数量: 2, 配送先名: "伊藤健太", 住所: "福岡県福岡市...", 電話番号: "080-8765-4321" },
 ]
 
+/** 当選者リストがプロジェクトにない場合のデモ用（mockCsvData から生成） */
+function getDemoWinnersFromMock(): { id: string; name: string; address?: string; phone?: string; prize?: string }[] {
+  return mockCsvData.map((r, i) => ({
+    id: String(i + 1),
+    name: r.配送先名,
+    address: r.住所,
+    phone: r.電話番号,
+    prize: r.品名,
+  }))
+}
+
 /** 配送情報を送信する際の「担当業者」候補 */
 function getVendorOptions(project: Project | null): { vendorId: string; vendorName: string }[] {
   if (!project) return []
@@ -73,25 +84,50 @@ export function PrizeVendorScreen() {
   const [selectedOrderDocForPreview, setSelectedOrderDocForPreview] = useState<{ vendorName: string; requestedAt: string; document: { projectName: string; hallNames: string; prizeNames: string; totalQuantity: number } } | null>(null)
   const [previewData, setPreviewData] = useState<typeof mockCsvData>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
-  /** 配送情報（手入力） */
-  const [deliveryCompany, setDeliveryCompany] = useState("")
-  const [trackingNumber, setTrackingNumber] = useState("")
-  const [shipmentDate, setShipmentDate] = useState("")
+  /** 当選者ごとの配送情報（一人ひとり入力） */
+  type DeliveryRow = { winnerId: string; winnerName: string; carrierName: string; trackingNumber: string; shippedAt: string }
+  const [deliveryRows, setDeliveryRows] = useState<DeliveryRow[]>([])
+
+  /** 表示する当選者リスト（プロジェクトに保存済み or デモ用） */
+  const winners = useMemo(() => {
+    if (project?.winnerList && project.winnerList.length > 0) return project.winnerList
+    return getDemoWinnersFromMock()
+  }, [project?.winnerList])
 
   useEffect(() => {
     if (vendorOptions.length > 0 && !currentVendorId) setCurrentVendorId(vendorOptions[0].vendorId)
   }, [vendorOptions, currentVendorId])
 
-  /** 選択中業者で既に送信済みの配送情報があればフォームに反映 */
+  /** 選択中業者で既に送信済みの配送情報があればフォームに反映。当選者リストが変わったら行を再構成 */
   useEffect(() => {
     if (!project || !currentVendor) return
     const entry = project.prizeDeliveryInfoByVendor?.find((d) => d.vendorId === currentVendor.vendorId)
-    if (entry) {
-      setDeliveryCompany(entry.carrierName ?? "")
-      setTrackingNumber(entry.trackingNumber ?? "")
-      setShipmentDate(entry.shippedAt ?? "")
+    const list = project.winnerList && project.winnerList.length > 0 ? project.winnerList : getDemoWinnersFromMock()
+    if (entry?.deliveries && entry.deliveries.length > 0) {
+      setDeliveryRows(
+        list.map((w) => {
+          const d = entry.deliveries!.find((x) => x.winnerId === w.id)
+          return {
+            winnerId: w.id,
+            winnerName: w.name,
+            carrierName: d?.carrierName ?? "",
+            trackingNumber: d?.trackingNumber ?? "",
+            shippedAt: d?.shippedAt ?? "",
+          }
+        })
+      )
+    } else {
+      setDeliveryRows(
+        list.map((w) => ({
+          winnerId: w.id,
+          winnerName: w.name,
+          carrierName: entry?.carrierName ?? "",
+          trackingNumber: entry?.trackingNumber ?? "",
+          shippedAt: entry?.shippedAt ?? "",
+        }))
+      )
     }
-  }, [project?.id, currentVendor?.vendorId])
+  }, [project?.id, project?.winnerList, currentVendor?.vendorId, project?.prizeDeliveryInfoByVendor])
 
   const handleFileClick = () => fileInputRef.current?.click()
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -100,30 +136,42 @@ export function PrizeVendorScreen() {
       toast({ title: "ファイル選択", description: `配送情報ファイル「${file.name}」を選択しました` })
     }
   }
+
+  const updateDeliveryRow = (winnerId: string, field: keyof Omit<DeliveryRow, "winnerId" | "winnerName">, value: string) => {
+    setDeliveryRows((prev) =>
+      prev.map((r) => (r.winnerId === winnerId ? { ...r, [field]: value } : r))
+    )
+  }
+
   const handleSubmit = () => {
     if (!project || !currentVendor) return
     setShowConfirm(false)
     const deliveredAt = new Date().toISOString()
+    const deliveries = deliveryRows.map((r) => ({
+      winnerId: r.winnerId,
+      winnerName: r.winnerName,
+      carrierName: r.carrierName.trim() || undefined,
+      trackingNumber: r.trackingNumber.trim() || undefined,
+      shippedAt: r.shippedAt.trim() || undefined,
+    }))
     const existing = project.prizeDeliveryInfoByVendor ?? []
     const next = existing.filter((d) => d.vendorId !== currentVendor.vendorId).concat({
       vendorId: currentVendor.vendorId,
       vendorName: currentVendor.vendorName,
       deliveredAt,
-      carrierName: deliveryCompany.trim() || undefined,
-      trackingNumber: trackingNumber.trim() || undefined,
-      shippedAt: shipmentDate.trim() || undefined,
+      deliveries,
     })
     updateProject(project.id, { prizeDeliveryInfoByVendor: next })
     toast({
       title: "送信完了",
-      description: `配送情報を送信しました（${deliveryCompany || "ー"} / ${trackingNumber || "ー"} / ${shipmentDate || "ー"}）。事務管理課で確認できます。`,
+      description: `配送情報を${deliveryRows.length}件送信しました。事務管理課で確認できます。`,
     })
-    setDeliveryCompany("")
-    setTrackingNumber("")
-    setShipmentDate("")
+    setDeliveryRows((prev) => prev.map((r) => ({ ...r, carrierName: "", trackingNumber: "", shippedAt: "" })))
   }
 
-  const canSubmit = deliveryCompany.trim() !== "" || trackingNumber.trim() !== "" || shipmentDate.trim() !== ""
+  const canSubmit = deliveryRows.some(
+    (r) => r.carrierName.trim() !== "" || r.trackingNumber.trim() !== "" || r.shippedAt.trim() !== ""
+  )
   const handlePreview = () => {
     setPreviewData(mockCsvData)
     setShowPreview(true)
@@ -300,34 +348,50 @@ export function PrizeVendorScreen() {
                           </select>
                         </div>
                       )}
-                  <p className="text-xs text-muted-foreground mb-4">配送会社名・追跡番号・発送日を入力し送信すると、事務管理課の「景品業者が入力した配送情報の参照」で確認できます。</p>
-                  <div className="grid gap-4 sm:grid-cols-1 mb-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="delivery-company">配送会社名</Label>
-                      <Input
-                        id="delivery-company"
-                        placeholder="例: ヤマト運輸"
-                        value={deliveryCompany}
-                        onChange={(e) => setDeliveryCompany(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="tracking-number">追跡番号</Label>
-                      <Input
-                        id="tracking-number"
-                        placeholder="例: 1234-5678-9012"
-                        value={trackingNumber}
-                        onChange={(e) => setTrackingNumber(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="shipment-date">発送日</Label>
-                      <Input
-                        id="shipment-date"
-                        type="date"
-                        value={shipmentDate}
-                        onChange={(e) => setShipmentDate(e.target.value)}
-                      />
+                  <p className="text-xs text-muted-foreground mb-4">当選者ごとに配送会社名・追跡番号・発送日を入力し送信すると、事務管理課の「景品業者が入力した配送情報の参照」で確認できます。</p>
+                  <div className="border rounded-md overflow-hidden mb-6">
+                    <div className="h-[440px] overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[120px]">当選者名</TableHead>
+                            <TableHead>配送会社名</TableHead>
+                            <TableHead>追跡番号</TableHead>
+                            <TableHead className="w-[140px]">発送日</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {deliveryRows.map((row) => (
+                            <TableRow key={row.winnerId}>
+                              <TableCell className="font-medium">{row.winnerName}</TableCell>
+                              <TableCell>
+                                <Input
+                                  placeholder="例: ヤマト運輸"
+                                  value={row.carrierName}
+                                  onChange={(e) => updateDeliveryRow(row.winnerId, "carrierName", e.target.value)}
+                                  className="h-8"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  placeholder="例: 1234-5678-9012"
+                                  value={row.trackingNumber}
+                                  onChange={(e) => updateDeliveryRow(row.winnerId, "trackingNumber", e.target.value)}
+                                  className="h-8"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="date"
+                                  value={row.shippedAt}
+                                  onChange={(e) => updateDeliveryRow(row.winnerId, "shippedAt", e.target.value)}
+                                  className="h-8"
+                                />
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground mb-2">または、追跡番号等が含まれたファイルをアップロードすることもできます。</p>
@@ -356,25 +420,33 @@ export function PrizeVendorScreen() {
         </ScrollArea>
       </div>
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>配送情報の送信</DialogTitle>
-            <DialogDescription>以下の内容で配送情報を送信しますか？</DialogDescription>
+            <DialogDescription>以下の内容で配送情報を送信しますか？（当選者ごと）</DialogDescription>
           </DialogHeader>
-          <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-sm">
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">配送会社名</span>
-              <span className="font-medium">{deliveryCompany || "ー"}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">追跡番号</span>
-              <span className="font-medium">{trackingNumber || "ー"}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">発送日</span>
-              <span className="font-medium">{shipmentDate || "ー"}</span>
-            </div>
-          </div>
+          <ScrollArea className="max-h-[50vh] rounded-lg border bg-muted/30 p-2">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>当選者名</TableHead>
+                  <TableHead>配送会社名</TableHead>
+                  <TableHead>追跡番号</TableHead>
+                  <TableHead>発送日</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {deliveryRows.map((row) => (
+                  <TableRow key={row.winnerId}>
+                    <TableCell className="font-medium">{row.winnerName}</TableCell>
+                    <TableCell className="text-sm">{row.carrierName || "ー"}</TableCell>
+                    <TableCell className="text-sm">{row.trackingNumber || "ー"}</TableCell>
+                    <TableCell className="text-sm">{row.shippedAt || "ー"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowConfirm(false)}>キャンセル</Button>
             <Button onClick={handleSubmit}>送信</Button>
