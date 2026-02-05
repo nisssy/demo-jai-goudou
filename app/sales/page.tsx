@@ -657,20 +657,18 @@ function SalesPageContent() {
     if (screen === "proposal" && selectedProject) fillFormFromProject(selectedProject)
   }, [screen, selectedProject?.id])
 
-  // 見積書PDFモーダルを開いたとき、対象ホールの見積項目で編集用stateを初期化（なければデフォルト1セット）
+  // 見積書PDFモーダルを開いたとき、対象ホールの見積項目で編集用stateを初期化（なければデフォルト1セット）。DM投函無の場合はDM発送代行を除外
   useEffect(() => {
     if (showPdfModal && pdfOutputHallName) {
       const current = hallQuotes[pdfOutputHallName]
-      if (current && current.length > 0) {
-        setPdfEditableItems(current.map((i) => ({ ...i })))
-      } else {
-        setPdfEditableItems(PDF_DEFAULT_QUOTE_ITEMS.map((i) => ({ ...i })))
-      }
+      const baseItems = current && current.length > 0 ? current : PDF_DEFAULT_QUOTE_ITEMS
+      const filtered = dmMailing === "yes" ? baseItems : baseItems.filter((i) => i.id !== 3)
+      setPdfEditableItems(filtered.map((i) => ({ ...i })))
       setPdfStep("template")
       setPdfEditingItems(false)
       pdfEditableItemsBackupRef.current = null
     }
-  }, [showPdfModal, pdfOutputHallName])
+  }, [showPdfModal, pdfOutputHallName, dmMailing])
 
   useEffect(() => {
     if (showPosterOrderModal && !posterOrderVendorId) {
@@ -873,10 +871,13 @@ function SalesPageContent() {
     const posterPrintQty = parseFloat(posterPrintQuantity) || 0
     const posterPrintPrice = parseFloat(posterPrintUnitPrice) || 0
     const posterPrintAmount = posterPrintQty * posterPrintPrice
-    const totalAmount = Object.values(totalQuoteItems).reduce((sum, amount) => {
-      return sum + (parseFloat(amount) || 0)
-    }, 0) + posterPrintAmount
-    
+    const totalAmount =
+      Object.entries(totalQuoteItems).reduce(
+        (sum, [key, amount]) =>
+          sum + (dmMailing === "no" && key === "3" ? 0 : parseFloat(amount) || 0),
+        0
+      ) + posterPrintAmount
+
     if (totalAmount <= 0) {
       toast({
         title: "⚠️ 入力エラー",
@@ -903,8 +904,10 @@ function SalesPageContent() {
     const newHallQuotes: { [hallName: string]: QuoteItem[] } = {}
     validHallNames.forEach((hallName) => {
       const percentage = hallPercentages[hallName] || 0
-      // 各項目の全体金額から、割合で各ホールの金額を計算
-      const hallQuoteItems: QuoteItem[] = defaultQuoteItems.map((item) => {
+      // 各項目の全体金額から、割合で各ホールの金額を計算（DM投函無の場合はDM発送代行を除外）
+      const hallQuoteItems: QuoteItem[] = defaultQuoteItems
+        .filter((item) => dmMailing === "yes" || item.id !== 3)
+        .map((item) => {
         if (item.id === 2) {
           // ポスター印刷の場合は、全体の枚数と単価から各ホールの金額を計算
           const totalPosterAmount = posterPrintQty * posterPrintPrice
@@ -1045,13 +1048,12 @@ function SalesPageContent() {
 
   const calculateQuoteTotal = (hallName: string) => {
     const quoteItems = hallQuotes[hallName] || []
-    return quoteItems.filter((item) => item.included).reduce((sum, item) => {
-      // ポスター印刷の場合は quantity × unitPrice、その他は unitPrice
-      if (item.id === 2) {
-        return sum + item.quantity * item.unitPrice
-      }
-      return sum + item.unitPrice
-    }, 0)
+    return quoteItems
+      .filter((item) => item.included && (dmMailing === "yes" || item.id !== 3))
+      .reduce((sum, item) => {
+        if (item.id === 2) return sum + item.quantity * item.unitPrice
+        return sum + item.unitPrice
+      }, 0)
   }
 
   const calculateAllQuotesTotal = () => {
@@ -2411,8 +2413,8 @@ function SalesPageContent() {
                     <CardContent className="space-y-4">
                       <div className="space-y-3">
                         <Label>項目ごとの金額（円）</Label>
-                        <p className="text-xs text-muted-foreground">各項目の全体金額を入力してください。各ホールの金額は割合で自動計算されます。</p>
-                        {defaultQuoteItems.map((item) => {
+                        <p className="text-xs text-muted-foreground">各項目の全体金額を入力してください。各ホールの金額は割合で自動計算されます。DM投函が「無」の場合はDM発送代行は表示されません。</p>
+                        {defaultQuoteItems.filter((item) => dmMailing === "yes" || item.id !== 3).map((item) => {
                           // ポスター印刷は枚数と単価で計算
                           if (item.id === 2) {
                             const quantity = parseFloat(posterPrintQuantity) || 0
@@ -2656,13 +2658,17 @@ function SalesPageContent() {
                         {proportionMode === "hall" ? (
                           hallNames.filter((name) => name.trim() !== "").map((hallName, index) => {
                             const percentage = hallPercentages[hallName] || 0
-                            // 各項目の合計金額を計算
+                            // 各項目の合計金額を計算（DM投函無の場合はDM発送代行を除外）
                             const posterPrintQty = parseFloat(posterPrintQuantity) || 0
                             const posterPrintPrice = parseFloat(posterPrintUnitPrice) || 0
                             const posterPrintAmount = posterPrintQty * posterPrintPrice
-                            const totalAmount = Object.values(totalQuoteItems).reduce((sum, amount) => {
-                              return sum + (parseFloat(amount) || 0)
-                            }, 0) + posterPrintAmount
+                            const totalAmount =
+                              Object.entries(totalQuoteItems).reduce(
+                                (sum, [key, amount]) =>
+                                  sum +
+                                  (dmMailing === "no" && key === "3" ? 0 : parseFloat(amount) || 0),
+                                0
+                              ) + posterPrintAmount
                             const calculatedAmount = totalAmount > 0 ? Math.floor((totalAmount * percentage) / 100) : 0
 
                             return (
@@ -2709,13 +2715,17 @@ function SalesPageContent() {
                             const company = companies.find(c => c.id === companyId)
                             const percentage = companyPercentages[companyId] || 0
                             
-                            // Calculate Company Amount
+                            // Calculate Company Amount（DM投函無の場合はDM発送代行を除外）
                             const posterPrintQty = parseFloat(posterPrintQuantity) || 0
                             const posterPrintPrice = parseFloat(posterPrintUnitPrice) || 0
                             const posterPrintAmount = posterPrintQty * posterPrintPrice
-                            const totalAmount = Object.values(totalQuoteItems).reduce((sum, amount) => {
-                              return sum + (parseFloat(amount) || 0)
-                            }, 0) + posterPrintAmount
+                            const totalAmount =
+                              Object.entries(totalQuoteItems).reduce(
+                                (sum, [key, amount]) =>
+                                  sum +
+                                  (dmMailing === "no" && key === "3" ? 0 : parseFloat(amount) || 0),
+                                0
+                              ) + posterPrintAmount
                             const calculatedAmount = totalAmount > 0 ? Math.floor((totalAmount * percentage) / 100) : 0
 
                             return (
@@ -2770,14 +2780,18 @@ function SalesPageContent() {
                         )}
                         
                         {(() => {
-                          // 各項目の合計金額を計算
+                          // 各項目の合計金額を計算（DM投函無の場合はDM発送代行を除外）
                           const posterPrintQty = parseFloat(posterPrintQuantity) || 0
                           const posterPrintPrice = parseFloat(posterPrintUnitPrice) || 0
                           const posterPrintAmount = posterPrintQty * posterPrintPrice
-                          const totalAmount = Object.values(totalQuoteItems).reduce((sum, amount) => {
-                            return sum + (parseFloat(amount) || 0)
-                          }, 0) + posterPrintAmount
-                          
+                          const totalAmount =
+                            Object.entries(totalQuoteItems).reduce(
+                              (sum, [key, amount]) =>
+                                sum +
+                                (dmMailing === "no" && key === "3" ? 0 : parseFloat(amount) || 0),
+                              0
+                            ) + posterPrintAmount
+
                           if (totalAmount > 0) {
                             return (
                               <div className="space-y-2 pt-2 border-t">
@@ -2848,16 +2862,21 @@ function SalesPageContent() {
                   <CardContent className="space-y-6">
                     {hallNames.filter((name) => name.trim() !== "").map((hallName, index) => {
                       const percentage = hallPercentages[hallName] || 0
-                      // 各項目の合計金額を計算
+                      // 各項目の合計金額を計算（DM投函無の場合はDM発送代行を除外）
                       const posterPrintQty = parseFloat(posterPrintQuantity) || 0
                       const posterPrintPrice = parseFloat(posterPrintUnitPrice) || 0
                       const posterPrintAmount = posterPrintQty * posterPrintPrice
-                      const totalAmount = Object.values(totalQuoteItems).reduce((sum, amount) => {
-                        return sum + (parseFloat(amount) || 0)
-                      }, 0) + posterPrintAmount
+                      const totalAmount =
+                        Object.entries(totalQuoteItems).reduce(
+                          (sum, [key, amount]) =>
+                            sum + (dmMailing === "no" && key === "3" ? 0 : parseFloat(amount) || 0),
+                          0
+                        ) + posterPrintAmount
                       const calculatedAmount = totalAmount > 0 ? Math.floor((totalAmount * percentage) / 100) : 0
-                      const quoteItems = hallQuotes[hallName] || []
-                      
+                      const quoteItems = (hallQuotes[hallName] || []).filter(
+                        (item) => dmMailing === "yes" || item.id !== 3
+                      )
+
                       return (
                         <Card key={index} className="border border-border">
                           <CardHeader>
@@ -2949,9 +2968,13 @@ function SalesPageContent() {
                               const posterPrintQty = parseFloat(posterPrintQuantity) || 0
                               const posterPrintPrice = parseFloat(posterPrintUnitPrice) || 0
                               const posterPrintAmount = posterPrintQty * posterPrintPrice
-                              const totalAmount = Object.values(totalQuoteItems).reduce((sum, amount) => {
-                                return sum + (parseFloat(amount) || 0)
-                              }, 0) + posterPrintAmount
+                              const totalAmount =
+                                Object.entries(totalQuoteItems).reduce(
+                                  (sum, [key, amount]) =>
+                                    sum +
+                                    (dmMailing === "no" && key === "3" ? 0 : parseFloat(amount) || 0),
+                                  0
+                                ) + posterPrintAmount
                               return `¥${Object.keys(hallPercentages).reduce((sum, hn) => {
                                 const p = hallPercentages[hn] || 0
                                 return sum + Math.floor((totalAmount * p) / 100)
@@ -3125,7 +3148,7 @@ function SalesPageContent() {
                             {posterStatus}
                           </Badge>
                         </div>
-                        {selectedProject?.dmMailing === "yes" && (
+                        {(selectedProject?.dmMailing === "yes" || dmMailing === "yes") && (
                           <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                             <span className="text-sm font-medium">DM制作状況</span>
                             <Badge variant={variant(dmStatus)} className="text-sm">
@@ -3420,7 +3443,7 @@ function SalesPageContent() {
                 )
               })()}
 
-              {projectId && selectedProject?.dmMailing === "yes" && (() => {
+              {projectId && (selectedProject?.dmMailing === "yes" || dmMailing === "yes") && (() => {
                 const dmRequests = getDesignRequestsByProjectAndType(projectId, "dm")
                 const sortedDm = [...dmRequests].sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime())
                 const latestDm = sortedDm[0]
