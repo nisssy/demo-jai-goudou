@@ -128,6 +128,7 @@ export type Hall = {
   email?: string
 }
 
+<<<<<<< Updated upstream
 /** 景品業者（1業者に複数景品が紐づく: 多対1） */
 export type PrizeVendor = {
   id: string
@@ -193,3 +194,56 @@ export type PosterRequestComment = DesignRequestComment
 
 /** @deprecated use DesignRequest */
 export type PosterRequest = DesignRequest
+=======
+export type RecordItem = {
+  id: string
+  projectId: string
+  projectCode: string
+  recordNumber: number
+  recordTitle: string
+  storeCode: string
+  storeName: string
+  orderDate: string
+  publishStartDate: string
+  publishEndDate: string
+  publishDays: number
+  netAmount: number
+  dailyBudget: number
+  campaignPurpose: string
+  billingMethod: string
+  deliveryArea: string
+  target: string
+  salesApplicationDate?: string
+  acquirer?: string
+  hall担当?: string
+  companyName?: string
+  hallName?: string
+  productCategory: "イベント" | "ポイント" | "オプション"
+  productName: string
+  eventCategory: string
+  status: string
+  projectName?: string
+}
+
+export type SearchCondition = {
+  id: string
+  name: string
+  productCategory: string
+  productName: string
+  projectNumber: string
+  recordNumber: string
+  statuses: string[]
+}
+
+export type ProductItem = {
+  id: string
+  projectId: string
+  category: "ポスター" | "DM" | "抽選" | "デジタル広告" | "その他"
+  name: string
+  startDate: string
+  endDate: string
+  status: "提案中" | "進行中" | "完了" | "キャンセル"
+  casting?: string
+  estimateAmount: number
+}
+>>>>>>> Stashed changes
